@@ -1,24 +1,21 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import { useAuthStore } from '../stores/authStore';
-import { LogIn } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 
-export function Login() {
+export function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const setUser = useAuthStore((state) => state.setUser);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { data } = await api.post('/auth/login', { email, password });
-      setUser(data.user);
-      navigate('/');
+      await api.post('/auth/signup', { email, password });
+      navigate('/login');
     } catch (err) {
-      setError('Invalid credentials');
+      setError('Failed to create account');
     }
   };
 
@@ -26,8 +23,8 @@ export function Login() {
     <div className="min-h-screen bg-gray-100 flex items-center justify-center">
       <div className="bg-white p-8 rounded-lg shadow-md w-96">
         <div className="flex items-center justify-center mb-8">
-          <LogIn className="w-8 h-8 text-blue-500" />
-          <h1 className="text-2xl font-bold ml-2">Login</h1>
+          <UserPlus className="w-8 h-8 text-blue-500" />
+          <h1 className="text-2xl font-bold ml-2">Sign Up</h1>
         </div>
 
         {error && (
@@ -67,14 +64,14 @@ export function Login() {
             type="submit"
             className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            Login
+            Sign Up
           </button>
         </form>
 
         <p className="mt-4 text-center text-gray-600">
-          Don't have an account?{' '}
-          <a href="/signup" className="text-blue-500 hover:text-blue-600">
-            Sign up
+          Already have an account?{' '}
+          <a href="/login" className="text-blue-500 hover:text-blue-600">
+            Login
           </a>
         </p>
       </div>

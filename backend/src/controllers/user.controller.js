@@ -96,7 +96,7 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new ApiError(400, "password is incorrect");
   }
 
-  const { accessToken, refreshToken } = generateAccessAndRefreshToken(user);
+  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user);
 
   const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
 
@@ -112,6 +112,16 @@ const loginUser = asyncHandler(async (req, res) => {
 });
 
 const logoutUser = asyncHandler(async(req,res)=>{
+
+  const user = await User.findById(req.user._id);
+
+  if (!user) {
+    throw new ApiError(404, "user not found");
+  }
+
+  user.refreshToken = null;
+  await user.save({ validateBeforeSave: false });
+
   const options ={
     httpOnly:true,
     secure:true,

@@ -13,6 +13,7 @@ import {
 } from "../utils/coverImageSelector.js";
 import { generateUsername } from "../utils/usernameGenerator.js";
 import { User } from "../models/User.model.js";
+import { requiredAge } from "../constants.js";
 
 const generateAccessAndRefreshToken = async (user) => {
   try {
@@ -36,10 +37,14 @@ const registerUser = asyncHandler(async (req, res) => {
   //create user
   console.log("registering user");
 
-  const { email, password } = req.body;
+  const { email, password, age } = req.body;
 
   if ([email, password].some((item) => item?.trim() === "")) {
     throw new ApiError(400, "all fields are required");
+  }
+
+  if (age < requiredAge || typeof age != "number") {
+    throw new ApiError(400, `age is too low, required age is ${requiredAge}`);
   }
 
   const existingUser = await User.findOne({
@@ -126,6 +131,29 @@ const loginUser = asyncHandler(async (req, res) => {
     );
 });
 
+const loginUsingRefreshToken = asyncHandler(async (req, res) => {
+  const user = req.user;
+  const { accessToken, refreshToken } =
+    await generateAccessAndRefreshToken(user);
+
+  const loggedInUser = await User.findById(user._id).select(
+    "-password -refreshToken"
+  );
+
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(200, { user: loggedInUser, accessToken, refreshToken })
+    );
+});
+
 const logoutUser = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);
 
@@ -151,9 +179,7 @@ const logoutUser = asyncHandler(async (req, res) => {
 const getUser = asyncHandler(async (req, res) => {
   res
     .status(200)
-    .json(
-      new ApiResponse(200, req.user, "user retrieved successfully")
-    );
+    .json(new ApiResponse(200, req.user, "user retrieved successfully"));
 });
 
 const changePassword = asyncHandler(async (req, res) => {
@@ -211,7 +237,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 const updateAvatar = asyncHandler(async (req, res) => {
   const { avatarIdx } = req.body;
 
-  if (!avatarIdx && avatarIdx != 0 || typeof(avatarIdx)!="number") {
+  if ((!avatarIdx && avatarIdx != 0) || typeof avatarIdx != "number") {
     throw new ApiError(401, "please enter a vaild avtar index");
   }
   const isAvatarIdxValid = isAvatarAvailable(avatarIdx);
@@ -230,39 +256,46 @@ const updateAvatar = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, {}, "avatar updated sucessfully"));
 });
 
-const updateCoverImage = asyncHandler(async(req,res)=>{
-  const {coverImageIdx} = req.body;
+const updateCoverImage = asyncHandler(async (req, res) => {
+  const { coverImageIdx } = req.body;
 
-  if(!coverImageIdx && coverImageIdx!=0 || typeof(coverImageIdx)!="number"){
-    throw new ApiError(401,"please enter a valid cover image index");
+  if (
+    (!coverImageIdx && coverImageIdx != 0) ||
+    typeof coverImageIdx != "number"
+  ) {
+    throw new ApiError(401, "please enter a valid cover image index");
   }
 
-  const isCoverImageValid = isCoverImageAvailable(coverImageIdx)
+  const isCoverImageValid = isCoverImageAvailable(coverImageIdx);
 
-  if(!isCoverImageValid){
-    throw new ApiError(401,"cover image index is not available");
+  if (!isCoverImageValid) {
+    throw new ApiError(401, "cover image index is not available");
   }
 
   const newCoverImageUrl = getCustomCoverImageUrl(coverImageIdx);
 
-  const user = await User.findById(req.user?._id)
+  const user = await User.findById(req.user?._id);
 
-  user.coverImage= newCoverImageUrl;
-  await user.save({validateBeforeSave:false});
+  user.coverImage = newCoverImageUrl;
+  await user.save({ validateBeforeSave: false });
 
-  res.status(200).json(new ApiResponse(200,{},"cover image updated successfully"))
-})
+  res
+    .status(200)
+    .json(new ApiResponse(200, {}, "cover image updated successfully"));
+});
 
-const changeUserName = asyncHandler(async (req,res)=>{
+const changeUserName = asyncHandler(async (req, res) => {
   const newUserName = generateUsername();
 
   const user = await User.findById(req.user?._id);
 
   user.username = newUserName;
-  await user.save({validateBeforeSave:true})
+  await user.save({ validateBeforeSave: true });
 
-  res.status(200).json(new ApiResponse(200,{},"username updated successfully"))
-})
+  res
+    .status(200)
+    .json(new ApiResponse(200, {}, "username updated successfully"));
+});
 
 export {
   registerUser,
@@ -273,5 +306,6 @@ export {
   updateAccountDetails,
   updateAvatar,
   updateCoverImage,
-  changeUserName
+  changeUserName,
+  loginUsingRefreshToken
 };

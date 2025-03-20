@@ -9,8 +9,9 @@ import {
   updateAvatar,
   updateCoverImage,
   changeUserName,
-} from "../controllers/user.controller.js"; // Fixed typo
-import { verifyJWT } from "../middlewares/auth.middleware.js";
+  loginUsingRefreshToken,
+} from "../controllers/user.controller.js";
+import { verifyJWT, verifyRefreshToken } from "../middlewares/auth.middleware.js";
 
 const router = Router();
 
@@ -23,4 +24,6 @@ router.route("/updateAccountDetails").post(verifyJWT, updateAccountDetails);
 router.route("/updateAvatar").post(verifyJWT, updateAvatar);
 router.route("/updateCoverImage").post(verifyJWT, updateCoverImage);
 router.route("/changeUsername").post(verifyJWT, changeUserName);
+router.route("/loginUsingRefreshToken").post(verifyRefreshToken, loginUsingRefreshToken);
+
 export default router;

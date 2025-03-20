@@ -297,6 +297,7 @@ const changeUserName = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "username updated successfully"));
 });
 
+
 export {
   registerUser,
   loginUser,
@@ -307,5 +308,5 @@ export {
   updateAvatar,
   updateCoverImage,
   changeUserName,
-  loginUsingRefreshToken
+  loginUsingRefreshToken,
 };

@@ -19,11 +19,11 @@ router.route("/register").post(registerUser);
 router.route("/login").post(loginUser);
 router.route("/logout").post(verifyJWT, logoutUser);
 router.route("/getUser").get(verifyJWT, getUser);
-router.route("/changePassword").post(verifyJWT, changePassword);
-router.route("/updateAccountDetails").post(verifyJWT, updateAccountDetails);
-router.route("/updateAvatar").post(verifyJWT, updateAvatar);
-router.route("/updateCoverImage").post(verifyJWT, updateCoverImage);
-router.route("/changeUsername").post(verifyJWT, changeUserName);
+router.route("/changePassword").patch(verifyJWT, changePassword);
+router.route("/updateAccountDetails").patch(verifyJWT, updateAccountDetails);
+router.route("/updateAvatar").patch(verifyJWT, updateAvatar);
+router.route("/updateCoverImage").patch(verifyJWT, updateCoverImage);
+router.route("/changeUsername").patch(verifyJWT, changeUserName);
 router.route("/loginUsingRefreshToken").post(verifyRefreshToken, loginUsingRefreshToken);
 
 export default router;

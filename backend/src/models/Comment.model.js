@@ -1,4 +1,5 @@
 import mongoose, { Schema } from "mongoose";
+import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
 
 const commentSchema = new mongoose.Schema({
     owner:{
@@ -19,5 +20,7 @@ const commentSchema = new mongoose.Schema({
         required:[true,"comment can't be empty"]
     }
 }, { timestamps: true });
+
+commentSchema.plugin(mongooseAggregatePaginate)
 
 export default mongoose.model("Comment", commentSchema);

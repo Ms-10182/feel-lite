@@ -16,4 +16,12 @@ const getAvatarUrl = () => {
     return avatars[index];
 };
 
-export { getAvatarUrl };
+const isAvatarAvailable =(avatarIdx)=>{
+    return (avatarIdx <= avatars.length-1 && avatarIdx>=0)
+}
+
+const getCustomAvatarUrl =(avatarIdx)=>{
+    return avatars[avatarIdx]
+}
+
+export { getAvatarUrl, isAvatarAvailable, getCustomAvatarUrl };

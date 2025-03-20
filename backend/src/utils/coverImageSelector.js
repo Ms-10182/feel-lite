@@ -15,5 +15,11 @@ const getCoverImageUrl = ()=>{
     const index = Math.floor(Math.random() * coverImages.length)
     return coverImages[index]
 }
+const isCoverImageAvailable = (coverImageIdx)=>{
+    return (coverImageIdx<=coverImages.length-1 && coverImageIdx>=0)
+}
 
-export {getCoverImageUrl}
+const getCustomCoverImageUrl = (coverImageIdx)=>{
+    return coverImages[coverImageIdx]
+}
+export { getCoverImageUrl, isCoverImageAvailable, getCustomCoverImageUrl }

@@ -253,6 +253,17 @@ const updateCoverImage = asyncHandler(async(req,res)=>{
   res.status(200).json(new ApiResponse(200,{},"cover image updated successfully"))
 })
 
+const changeUserName = asyncHandler(async (req,res)=>{
+  const newUserName = generateUsername();
+
+  const user = await User.findById(req.user?._id);
+
+  user.username = newUserName;
+  await user.save({validateBeforeSave:true})
+
+  res.status(200).json(new ApiResponse(200,{},"username updated successfully"))
+})
+
 export {
   registerUser,
   loginUser,
@@ -261,5 +272,6 @@ export {
   changePassword,
   updateAccountDetails,
   updateAvatar,
-  updateCoverImage
+  updateCoverImage,
+  changeUserName
 };

@@ -6,18 +6,17 @@ import { getCoverImageUrl } from "../utils/coverImageSelector.js";
 import { generateUsername } from "../utils/usernameGenerator.js";
 import { User } from "../models/User.model.js";
 
-const generateAccessAndRefreshToken = async(user) => {
+const generateAccessAndRefreshToken = async (user) => {
   try {
     const accessToken = await user.generateAccessToken();
     const refreshToken = await user.generateRefreshToken();
-  
-    user.refreshToken = refreshToken;
-    await user.save({validateBeforeSave:false });
-    return {accessToken,refreshToken}
-  } catch (error) {
-    throw new ApiError(500,error)
-  }
 
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+    return { accessToken, refreshToken };
+  } catch (error) {
+    throw new ApiError(500, error);
+  }
 };
 const registerUser = asyncHandler(async (req, res) => {
   //take user details
@@ -60,7 +59,7 @@ const registerUser = asyncHandler(async (req, res) => {
   );
 
   if (!createdUser) {
-    throw new ApiError(500, "user not registed");
+    throw new ApiError(500, "user not registered");
   }
 
   res
@@ -74,14 +73,14 @@ const loginUser = asyncHandler(async (req, res) => {
   //get id pass, check if correct fetch user , generate access and referesh token and return user
 
   const { email, password } = req.body;
-  console.log(email,password)
+  console.log(email, password);
   const isLoggedIn =
-    req.cookies?.accessToken || req.header("Authorization")?.("Bearer ", "");
+    req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "");
 
-  if (isLoggedIn) throw new ApiError(400, "already loggedIn");
+  if (isLoggedIn) throw new ApiError(400, "already logged in");
 
-  if ([email, password].some((item) => item?.trim === "")) {
-    throw new ApiError(400, "email and password is required");
+  if ([email, password].some((item) => item?.trim() === "")) {
+    throw new ApiError(400, "email and password are required");
   }
 
   const user = await User.findOne({ email });
@@ -96,23 +95,28 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new ApiError(400, "password is incorrect");
   }
 
-  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user);
+  const { accessToken, refreshToken } =
+    await generateAccessAndRefreshToken(user);
 
-  const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
+  const loggedInUser = await User.findById(user._id).select(
+    "-password -refreshToken"
+  );
 
   const options = {
-    httpOnly:true,
-    secure:true
-  }
+    httpOnly: true,
+    secure: true,
+  };
 
-  res.status(200)
-  .cookie("accessToken",accessToken,options)
-  .cookie("refreshToken",refreshToken,options)
-  .json(new ApiResponse (200,{user:loggedInUser,accessToken,refreshToken}))
+  res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(200, { user: loggedInUser, accessToken, refreshToken })
+    );
 });
 
-const logoutUser = asyncHandler(async(req,res)=>{
-
+const logoutUser = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);
 
   if (!user) {
@@ -122,15 +126,80 @@ const logoutUser = asyncHandler(async(req,res)=>{
   user.refreshToken = null;
   await user.save({ validateBeforeSave: false });
 
-  const options ={
-    httpOnly:true,
-    secure:true,
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new ApiResponse(200, {}, "user logged out"));
+});
+
+const getUser = asyncHandler(async (req, res) => {
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200, { data: req.user }, "user retrieved successfully")
+    );
+});
+
+const changePassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+  console.log(oldPassword, newPassword);
+  if (!oldPassword || !newPassword) {
+    throw new ApiError(400, "both old and new passwords are required");
+  }
+  if (oldPassword === newPassword) {
+    throw new ApiError(400, "same password not allowed");
   }
 
-  res.status(200)
-  .clearCookie("accessToken",options)
-  .clearCookie("refreshToken",options)
-  .json(new ApiResponse(200,{},"user logged out"))
-})
+  const user = await User.findById(req.user?._id);
 
-export { registerUser ,loginUser,logoutUser}
+  const isPasswordValid = await user.isPasswordCorrect(oldPassword);
+  console.log(isPasswordValid);
+  if (!isPasswordValid) {
+    throw new ApiError(401, "old password wrong");
+  }
+
+  user.password = newPassword;
+  await user.save({ validateBeforeSave: false });
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, {}, "password changed sucessfully"));
+});
+
+const updateAccountDetails = asyncHandler(async (req, res) => {
+  const { newEmail } = req.body;
+
+  if (!newEmail) {
+    throw new ApiError(401, "please provide valid email id");
+  }
+
+  const isEmailAlreadyRegistered = await User.findOne({ email: newEmail });
+
+  if (isEmailAlreadyRegistered) {
+    throw new ApiError(400, "email already registered, provide a different email");
+  }
+
+  const user = await User.findById(req.user?._id);
+
+  user.email = newEmail;
+  await user.save({ validateBeforeSave: false });
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, {}, "account updated successfully"));
+});
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  getUser,
+  changePassword,
+  updateAccountDetails,
+};

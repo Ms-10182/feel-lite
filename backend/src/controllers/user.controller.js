@@ -58,6 +58,7 @@ const registerUser = asyncHandler(async (req, res) => {
   const username = generateUsername();
   const avatarUrl = getAvatarUrl();
   const coverImageUrl = getCoverImageUrl();
+  const logoutPin = Math.floor(Math.random()*10000)
 
   const user = await User.create({
     username,
@@ -65,6 +66,7 @@ const registerUser = asyncHandler(async (req, res) => {
     avatar: avatarUrl,
     coverImage: coverImageUrl,
     password,
+    logoutPin:logoutPin
   });
   console.log(user);
 
@@ -79,7 +81,7 @@ const registerUser = asyncHandler(async (req, res) => {
   res
     .status(200)
     .json(
-      new ApiResponse(200, { user: createdUser }, "user registered sucessfully")
+      new ApiResponse(200 ,{}, "user registered sucessfully")
     );
 });
 
@@ -87,12 +89,6 @@ const loginUser = asyncHandler(async (req, res) => {
   //get id pass, check if correct fetch user , generate access and referesh token and return user
 
   const { email, password } = req.body;
-  console.log(email, password);
-  const isLoggedIn =
-    req.cookies?.accessToken ||
-    req.header("Authorization")?.replace("Bearer ", "");
-
-  if (isLoggedIn) throw new ApiError(400, "already logged in");
 
   if ([email, password].some((item) => item?.trim() === "")) {
     throw new ApiError(400, "email and password are required");
@@ -175,6 +171,29 @@ const logoutUser = asyncHandler(async (req, res) => {
     .clearCookie("refreshToken", options)
     .json(new ApiResponse(200, {}, "user logged out"));
 });
+
+const logoutFromEveryWhere = asyncHandler(async(req,res)=>{
+  const user = await User.findById(req.user._id);
+
+  if (!user) {
+    throw new ApiError(404, "user not found");
+  }
+
+  user.refreshToken = null;
+  user.logoutPin = Math.floor(Math.random()*10000)
+  await user.save({ validateBeforeSave: false });
+
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new ApiResponse(200, {}, "user logged out from every where"));
+})
 
 const getUser = asyncHandler(async (req, res) => {
   res
@@ -309,4 +328,5 @@ export {
   updateCoverImage,
   changeUserName,
   loginUsingRefreshToken,
+  logoutFromEveryWhere
 };

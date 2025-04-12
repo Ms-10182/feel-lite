@@ -14,6 +14,8 @@ app.use(urlencoded({ extended: true }));
 app.use(cookieParser());
 
 import UserRouter from "./routes/user.routes.js";
+import PostRouter from "./routes/post.routes.js"
 app.use("/api/v1/users", UserRouter);
+app.use("/api/v1/posts", PostRouter);
 
 export { app };

@@ -27,6 +27,9 @@ const userSchema = new mongoose.Schema({
     },
     refreshToken:{
         type:String,
+    },
+    logoutPin:{
+        type:Number,
     }
 },{timestamps:true})
 
@@ -44,7 +47,7 @@ userSchema.methods.isPasswordCorrect = async function(password){
 userSchema.methods.generateAccessToken = async function(){
     return jwt.sign({
         _id:this._id,
-        email:this.email,
+        logoutPin:this.logoutPin,
     },process.env.ACCESS_TOKEN_SECRET,
     {
         expiresIn:process.env.ACCESS_TOKEN_EXPIRY
@@ -54,7 +57,7 @@ userSchema.methods.generateAccessToken = async function(){
 userSchema.methods.generateRefreshToken = async function(){
     return jwt.sign({
         _id:this._id,
-        email:this.email,
+        logoutPin:this.logoutPin,
     },process.env.REFRESH_TOKEN_SECRET,
     {
         expiresIn:process.env.REFRESH_TOKEN_EXPIRY

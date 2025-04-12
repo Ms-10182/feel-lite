@@ -10,6 +10,7 @@ import {
   updateCoverImage,
   changeUserName,
   loginUsingRefreshToken,
+  logoutFromEveryWhere,
 } from "../controllers/user.controller.js";
 import { verifyJWT, verifyRefreshToken } from "../middlewares/auth.middleware.js";
 
@@ -25,5 +26,6 @@ router.route("/updateAvatar").patch(verifyJWT, updateAvatar);
 router.route("/updateCoverImage").patch(verifyJWT, updateCoverImage);
 router.route("/changeUsername").patch(verifyJWT, changeUserName);
 router.route("/loginUsingRefreshToken").post(verifyRefreshToken, loginUsingRefreshToken);
+router.route("/logoutFromEveryWhere").post(verifyJWT,logoutFromEveryWhere)
 
 export default router;

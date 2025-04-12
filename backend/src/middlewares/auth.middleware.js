@@ -13,14 +13,20 @@ const verifyJWT = asyncHandler(async (req, _, next) => {
       throw new ApiError(401, "unauthorized access");
     }
 
+    console.log("checking jwt")
     const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+    // console.log(decodedToken)
 
     const user = await User.findById(decodedToken._id).select(
       "-password -refreshToken"
     );
 
     if (!user) {
-      throw new ApiError(4001, "invalid access token");
+      throw new ApiError(401, "invalid access token");
+    }
+
+    if(user.logoutPin !== decodedToken.logoutPin){
+      throw new ApiError(403,"user was logged out please login again")
     }
 
     req.user = user;
@@ -63,6 +69,10 @@ const verifyRefreshToken = asyncHandler(async (req, _, next) => {
       throw new ApiError(401, "invalid token or expired");
     }
     req.user = user;
+
+    if(user.logoutPin !== decodedToken.logoutPin){
+      throw new ApiError(403,"user was logged out please login again")
+    }
 
     next();
   } catch (error) {

@@ -34,7 +34,6 @@ export function Home() {
       console.error('Logout failed:', error);
     }
   };
-
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-white shadow fixed top-0 left-0 right-0 z-10">

@@ -1,11 +1,19 @@
 import sharp from "sharp";
 import fs from "fs/promises";
+import { FileTypeCheck } from "../utils/imageExtensionValidator.js";
+import { ApiError } from "../utils/ApiError.js";
 
-const compressImagesMiddleware = async (req, res, next) => {
+const compressImagesMiddleware = async (req, _, next) => {
   try {
     if (!req.files || req.files.length === 0) {
-      req.compressedImages = []
+      req.compressedImages = [];
       return next(); // No files to process, move to the next middleware
+    }
+
+    const result = await FileTypeCheck(req.files);
+  
+    if(!result){
+      throw new ApiError(400,"file is not an image")
     }
 
     const compressedImages = [];
@@ -14,6 +22,7 @@ const compressImagesMiddleware = async (req, res, next) => {
       const name = file.path.split("\\").pop();
       const outputPath = `./public/tempCompressed/${name}`;
       sharp.cache(false); // Disable sharp cache
+
       // Compress the image
       await sharp(file.path)
         .toFormat("jpeg", { mozjpeg: true })

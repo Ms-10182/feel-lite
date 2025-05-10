@@ -12,50 +12,60 @@ const createPost = asyncHandler(async (req, res) => {
     throw new ApiError(403, "You are not authorized");
   }
 
-  if (content.trim() === "") {
+  if (!content || content.trim() === "") {
     throw new ApiError(400, "Content can't be empty");
   }
 
-  const compressedImages = req.compressedImages;
-  let uploadedImages;
-  
-  if (compressedImages || compressedImages.length > 0) {
-    const uploadTask = compressedImages.map(async (file) => {
-      const upload = await uploadOnCloudinary(file, "posts");
-      return upload.url;
+  try {
+    const compressedImages = req.compressedImages;
+    let uploadedImages = [];
+    
+    if (compressedImages && compressedImages.length > 0) {
+      const uploadTask = compressedImages.map(async (file) => {
+        const upload = await uploadOnCloudinary(file, "posts");
+        return upload.url;
+      });
+
+      uploadedImages = await Promise.all(uploadTask);
+    }
+
+    const post = await Post.create({
+      content: content.trim(),
+      owner: req.user._id,
+      tags: tags?.split(",").map((tag) => tag.trim()) || [],
+      images: uploadedImages || [],
     });
 
-    uploadedImages = await Promise.all(uploadTask);
+    if (!post) {
+      throw new ApiError(500, "Failed to create post");
+    }
+
+    res.status(201).json(new ApiResponse(201, post, "Post created successfully"));
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(500, `Failed to create post: ${error.message}`);
   }
-
-  const post = await Post.create({
-    content,
-    owner: req.user._id,
-    tags: tags?.split(",").map((tag) => tag.trim()) || [],
-    images: uploadedImages || [],
-  });
-
-  if (!post) {
-    throw new ApiError(500, "Failed to create post");
-  }
-
-  res.status(200).json(new ApiResponse(200, post, "Post created successfully"));
 });
 
 const getPost = asyncHandler(async (req, res) => {
   const { postId } = req.params;
 
   if (!postId || !isValidObjectId(postId)) {
-    throw new ApiError(400, "post is required");
+    throw new ApiError(400, "Post ID is required");
   }
 
-  const post = await Post.findById(postId);
+  try {
+    const post = await Post.findById(postId);
 
-  if (!post) {
-    throw new ApiError(404, "post not found");
+    if (!post) {
+      throw new ApiError(404, "Post not found");
+    }
+
+    res.status(200).json(new ApiResponse(200, post, "Post retrieved successfully"));
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(500, `Failed to retrieve post: ${error.message}`);
   }
-
-  res.status(200).json(new ApiResponse(200, post, "post retrived sucessfully"));
 });
 
 const editPost = asyncHandler(async (req, res) => {

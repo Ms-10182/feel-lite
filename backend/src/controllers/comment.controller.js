@@ -1,9 +1,9 @@
-import { ApiResponse } from "../utils/ApiResponse";
-import { ApiError } from "../utils/ApiError";
-import { asyncHandler } from "../utils/asyncHandler";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import { ApiError } from "../utils/ApiError.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 import mongoose, { isValidObjectId } from "mongoose";
-import { Comment } from "../models/comment.model";
-import { Post } from "../models/Post.model";
+import { Comment } from "../models/comment.model.js";
+import { Post } from "../models/Post.model.js";
 
 const getPostComments = asyncHandler(async (req, res) => {
   const { postId } = req.params;

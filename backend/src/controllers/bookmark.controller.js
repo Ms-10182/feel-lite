@@ -122,8 +122,8 @@ const addPostToBookmark = asyncHandler(async (req, res) => {
     throw new ApiError(500, `Failed to add post to bookmark: ${error.message}`);
   }
 });
-//delete post from bookmark
 
+//delete post from bookmark
 const removePostFromBookmark = asyncHandler(async (req, res) => {
   const { postId, bookMarkId } = req.body;
   if (!req.user) {
@@ -166,7 +166,6 @@ const removePostFromBookmark = asyncHandler(async (req, res) => {
 });
 
 //get all book mark of user
-
 const getAllBookmarks = asyncHandler(async (req, res) => {
   if (!req.user) {
     throw new ApiError(403, "You are not authorized");

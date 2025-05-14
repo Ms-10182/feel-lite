@@ -13,18 +13,19 @@ import {
   logoutFromEveryWhere,
 } from "../controllers/user.controller.js";
 import { verifyJWT, verifyRefreshToken } from "../middlewares/auth.middleware.js";
+import { checkBanStatus } from "../middlewares/banChecker.middleware.js";
 
 const router = Router();
 
 router.route("/register").post(registerUser);
 router.route("/login").post(loginUser);
 router.route("/logout").post(verifyJWT, logoutUser);
-router.route("/getUser").get(verifyJWT, getUser);
-router.route("/changePassword").patch(verifyJWT, changePassword);
-router.route("/updateAccountDetails").patch(verifyJWT, updateAccountDetails);
-router.route("/updateAvatar").patch(verifyJWT, updateAvatar);
-router.route("/updateCoverImage").patch(verifyJWT, updateCoverImage);
-router.route("/changeUsername").patch(verifyJWT, changeUserName);
+router.route("/getUser").get(verifyJWT, checkBanStatus, getUser);
+router.route("/changePassword").patch(verifyJWT, checkBanStatus, changePassword);
+router.route("/updateAccountDetails").patch(verifyJWT, checkBanStatus, updateAccountDetails);
+router.route("/updateAvatar").patch(verifyJWT, checkBanStatus, updateAvatar);
+router.route("/updateCoverImage").patch(verifyJWT, checkBanStatus, updateCoverImage);
+router.route("/changeUsername").patch(verifyJWT, checkBanStatus, changeUserName);
 router.route("/loginUsingRefreshToken").post(verifyRefreshToken, loginUsingRefreshToken);
 router.route("/logoutFromEveryWhere").post(verifyJWT,logoutFromEveryWhere)
 

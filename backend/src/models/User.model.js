@@ -1,6 +1,7 @@
 import mongoose from "mongoose"
 import bcrypt from "bcrypt"
 import jwt from 'jsonwebtoken'
+import mongoosePaginate from "mongoose-paginate-v2"
 
 const userSchema = new mongoose.Schema({
     username:{
@@ -30,6 +31,24 @@ const userSchema = new mongoose.Schema({
     },
     logoutPin:{
         type:Number,
+    },
+    isBanned: {
+        type: Boolean,
+        default: false
+    },
+    banReason: {
+        type: String,
+        default: null
+    },
+    banExpiresAt: {
+        type: Date,
+        default: null
+    },
+    // For elevated privileges
+    role: {
+        type: String,
+        enum: ["user", "moderator", "admin"],
+        default: "user"
     }
 },{timestamps:true})
 
@@ -64,4 +83,5 @@ userSchema.methods.generateRefreshToken = async function(){
     })
 }
 
-export const User =  mongoose.model("User",userSchema)
+userSchema.plugin(mongoosePaginate);
+export const User = mongoose.model("User", userSchema)

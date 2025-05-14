@@ -28,6 +28,7 @@ const generateAccessAndRefreshToken = async (user) => {
   }
 };
 
+
 const registerUser = asyncHandler(async (req, res) => {
   //take user details
   //check if email exist of not
@@ -99,11 +100,25 @@ const loginUser = asyncHandler(async (req, res) => {
   if (!user) {
     throw new ApiError(404, "user not found");
   }
-
   const isPasswordValid = await user.isPasswordCorrect(password);
 
   if (!isPasswordValid) {
     throw new ApiError(400, "password is incorrect");
+  }
+
+  // Check if user is banned before generating tokens
+  if (user.isBanned) {
+    // Check if ban has expired
+    if (user.banExpiresAt && new Date() > user.banExpiresAt) {
+      // Ban expired, update user status
+      user.isBanned = false;
+      user.banReason = null;
+      user.banExpiresAt = null;
+      await user.save({ validateBeforeSave: false });
+    } else {
+      // User is banned
+      throw new ApiError(403, `Your account has been suspended${user.banExpiresAt ? " until " + user.banExpiresAt.toLocaleDateString() : ""}: ${user.banReason || "Violation of terms"}`);
+    }
   }
 
   const { accessToken, refreshToken } =
@@ -129,6 +144,22 @@ const loginUser = asyncHandler(async (req, res) => {
 
 const loginUsingRefreshToken = asyncHandler(async (req, res) => {
   const user = req.user;
+
+  // Check if user is banned before generating new tokens
+  if (user.isBanned) {
+    // Check if ban has expired
+    if (user.banExpiresAt && new Date() > user.banExpiresAt) {
+      // Ban expired, update user status
+      user.isBanned = false;
+      user.banReason = null;
+      user.banExpiresAt = null;
+      await user.save({ validateBeforeSave: false });
+    } else {
+      // User is banned
+      throw new ApiError(403, `Your account has been suspended${user.banExpiresAt ? " until " + user.banExpiresAt.toLocaleDateString() : ""}: ${user.banReason || "Violation of terms"}`);
+    }
+  }
+
   const { accessToken, refreshToken } =
     await generateAccessAndRefreshToken(user);
 

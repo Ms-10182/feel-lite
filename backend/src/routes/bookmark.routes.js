@@ -8,11 +8,13 @@ import {
   getBookmarkedPosts 
 } from "../controllers/bookmark.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
+import { checkBanStatus } from "../middlewares/banChecker.middleware.js";
 
 const router = Router();
 
 // Apply auth middleware to all bookmark routes
 router.use(verifyJWT);
+router.use(checkBanStatus);
 
 // Create a new bookmark collection
 router.route("/").post(CreateNewBookmark);

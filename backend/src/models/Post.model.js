@@ -22,6 +22,10 @@ const postSchema = new mongoose.Schema(
         type: String,
       },
     ],
+    isArchived:{
+      type:Boolean,
+      default:false
+    }
   },
   { timestamps: true }
 );

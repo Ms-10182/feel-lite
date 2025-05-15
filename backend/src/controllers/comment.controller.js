@@ -8,7 +8,7 @@ import { Post } from "../models/Post.model.js";
 const getPostComments = asyncHandler(async (req, res) => {
   const { postId } = req.params;
   const { page = 1, limit = 10 } = req.query;
-  
+
   const pageNumber = parseInt(page, 10);
   const limitNumber = parseInt(limit, 10);
 
@@ -34,23 +34,35 @@ const getPostComments = asyncHandler(async (req, res) => {
         },
       },
       {
-        $sort: { createdAt: -1 } // Sort by newest first
-      },
-      {
         $lookup: {
           from: "users",
           foreignField: "_id",
           localField: "owner",
           as: "comment_owner",
-          pipeline: [
-            {
-              $project: {
-                // _id:1,
-                username: 1,
-                avatar: 1,
-              },
-            },
-          ],
+        },
+      },
+      {
+        $unwind: "$comment_owner",
+      },
+      {
+        $match: {
+          "comment_owner.isBanned": { $ne: true },
+        },
+      },
+      {
+        $sort: { createdAt: -1 }, // Sort by newest first
+      },
+      {
+        $project: {
+          _id: 1,
+          content: 1,
+          comment: 1,
+          createdAt: 1,
+          updatedAt: 1,          owner: {
+            _id: "$comment_owner._id",
+            username: "$comment_owner.username",
+            avatar: "$comment_owner.avatar",
+          },
         },
       },
     ]);
@@ -59,44 +71,40 @@ const getPostComments = asyncHandler(async (req, res) => {
       page: pageNumber,
       limit: limitNumber,
       customLabels: {
-        totalDocs: 'total',
-        docs: 'comments',
-        page: 'page',
-        nextPage: 'next',
-        prevPage: 'prev',
-        totalPages: 'totalPages',
-        pagingCounter: 'pagingCounter',
-        meta: 'paginator'
-      }
+        totalDocs: "total",
+        docs: "comments",
+        page: "page",
+        nextPage: "next",
+        prevPage: "prev",
+        totalPages: "totalPages",
+        pagingCounter: "pagingCounter",
+        meta: "paginator",
+      },
     };
 
     // Use the plugin to paginate
     const result = await Comment.aggregatePaginate(commentAggregation, options);
-    console.log(result)
+    // console.log(result);
     // If no comments exist, return empty array with pagination metadata
     if (result.comments.length === 0) {
       return res.status(200).json(
         new ApiResponse(
-          200, 
+          200,
           {
             comments: [],
             total: 0,
             page: pageNumber,
             limit: limitNumber,
-            totalPages: 0
-          }, 
+            totalPages: 0,
+          },
           "No comments found for this post"
         )
       );
     }
 
-    res.status(200).json(
-      new ApiResponse(
-        200, 
-        result, 
-        "Comments retrieved successfully"
-      )
-    );
+    res
+      .status(200)
+      .json(new ApiResponse(200, result, "Comments retrieved successfully"));
   } catch (error) {
     if (error instanceof ApiError) throw error;
     throw new ApiError(500, `Failed to retrieve comments: ${error.message}`);
@@ -193,19 +201,16 @@ const deleteComment = asyncHandler(async (req, res) => {
   if (!commentId || !isValidObjectId(commentId)) {
     throw new ApiError(400, "Comment ID is required");
   }
-  
+
   try {
     const comment = await Comment.findById(commentId);
 
     if (!comment) {
       throw new ApiError(404, "Comment not found");
     }
-    
+
     if (comment.owner.toString() !== req.user._id.toString()) {
-      throw new ApiError(
-        403,
-        "You are not the owner of this comment"
-      );
+      throw new ApiError(403, "You are not the owner of this comment");
     }
 
     await comment.deleteOne();

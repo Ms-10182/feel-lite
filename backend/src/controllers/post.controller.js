@@ -19,7 +19,7 @@ const createPost = asyncHandler(async (req, res) => {
   try {
     const compressedImages = req.compressedImages;
     let uploadedImages = [];
-    
+
     if (compressedImages && compressedImages.length > 0) {
       const uploadTask = compressedImages.map(async (file) => {
         const upload = await uploadOnCloudinary(file, "posts");
@@ -40,7 +40,9 @@ const createPost = asyncHandler(async (req, res) => {
       throw new ApiError(500, "Failed to create post");
     }
 
-    res.status(201).json(new ApiResponse(201, post, "Post created successfully"));
+    res
+      .status(201)
+      .json(new ApiResponse(201, post, "Post created successfully"));
   } catch (error) {
     if (error instanceof ApiError) throw error;
     throw new ApiError(500, `Failed to create post: ${error.message}`);
@@ -55,13 +57,21 @@ const getPost = asyncHandler(async (req, res) => {
   }
 
   try {
-    const post = await Post.findById(postId);
+    const post = await Post.aggregate([
+      {
+        $match:{
+          _id:postId
+        }
+      }
+    ]);
 
     if (!post) {
       throw new ApiError(404, "Post not found");
     }
 
-    res.status(200).json(new ApiResponse(200, post, "Post retrieved successfully"));
+    res
+      .status(200)
+      .json(new ApiResponse(200, post, "Post retrieved successfully"));
   } catch (error) {
     if (error instanceof ApiError) throw error;
     throw new ApiError(500, `Failed to retrieve post: ${error.message}`);
@@ -116,4 +126,66 @@ const deletePost = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, {}, "post deleted sucessfully"));
 });
 
-export { createPost,getPost, editPost, deletePost };
+const archivePost = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    throw new ApiError(403, "unauthorized access");
+  }
+  const { postId } = req.params;
+
+  if (!postId || !isValidObjectId(postId)) {
+    throw new ApiError(400, "invalid post Id");
+  }
+
+  const post = await Post.findById(postId);
+  
+  if (!post) {
+    throw new ApiError(404, "post not found");
+  }
+
+  if (post.owner.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, "you are not the owner of post");
+  }
+
+  if (post.isArchived) {
+    throw new ApiError(400, "post already archived");
+  }
+
+  post.isArchived = true;
+  await post.save({ validateBeforeSave: false });
+
+  res.status(201).json(new ApiResponse(201, {}, "post archived sucessfully"));
+});
+
+const unArchivePost = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    throw new ApiError(403, "unauthorized access");
+  }
+  const { postId } = req.params;
+
+  if (!postId || !isValidObjectId(postId)) {
+    throw new ApiError(400, "invalid post Id");
+  }
+
+  const post = await Post.findById(postId);
+  
+  if (!post) {
+    throw new ApiError(404, "post not found");
+  }
+
+  if (post.owner.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, "you are not the owner of post");
+  }
+
+  if (!post.isArchived) {
+    throw new ApiError(400, "post not archived");
+  }
+  post.isArchived = false;
+  await post.save({ validateBeforeSave: false });
+  res.status(200).json(new ApiResponse(200, {}, "post unarchived successfully"));
+});
+ //to do
+const getNewPosts = asyncHandler(async(req,res)=>{
+
+})
+export { createPost, getPost, editPost, deletePost, archivePost, unArchivePost };
+

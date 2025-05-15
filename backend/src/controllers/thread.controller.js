@@ -34,21 +34,30 @@ const createThreadComment = asyncHandler(async (req, res) => {
     const threadComment = await Thread.create({
       comment: new mongoose.Types.ObjectId(commentId),
       content: content.trim(),
-      owner: req.user._id
+      owner: req.user._id,
     });
 
     // Get thread with user details
     const populatedThread = await Thread.findById(threadComment._id).populate({
       path: "owner",
-      select: "_id username avatar"
+      select: "_id username avatar",
     });
 
-    res.status(201).json(
-      new ApiResponse(201, populatedThread, "Thread comment created successfully")
-    );
+    res
+      .status(201)
+      .json(
+        new ApiResponse(
+          201,
+          populatedThread,
+          "Thread comment created successfully"
+        )
+      );
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    throw new ApiError(500, `Failed to create thread comment: ${error.message}`);
+    throw new ApiError(
+      500,
+      `Failed to create thread comment: ${error.message}`
+    );
   }
 });
 
@@ -77,18 +86,30 @@ const updateThreadComment = asyncHandler(async (req, res) => {
 
     // Check if user is the owner of the thread comment
     if (threadComment.owner.toString() !== req.user._id.toString()) {
-      throw new ApiError(403, "You are not authorized to update this thread comment");
+      throw new ApiError(
+        403,
+        "You are not authorized to update this thread comment"
+      );
     }
 
     threadComment.content = content.trim();
     await threadComment.save();
 
-    res.status(200).json(
-      new ApiResponse(200, threadComment, "Thread comment updated successfully")
-    );
+    res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          threadComment,
+          "Thread comment updated successfully"
+        )
+      );
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    throw new ApiError(500, `Failed to update thread comment: ${error.message}`);
+    throw new ApiError(
+      500,
+      `Failed to update thread comment: ${error.message}`
+    );
   }
 });
 
@@ -112,17 +133,23 @@ const deleteThreadComment = asyncHandler(async (req, res) => {
 
     // Check if user is the owner of the thread comment
     if (threadComment.owner.toString() !== req.user._id.toString()) {
-      throw new ApiError(403, "You are not authorized to delete this thread comment");
+      throw new ApiError(
+        403,
+        "You are not authorized to delete this thread comment"
+      );
     }
 
     await Thread.findByIdAndDelete(threadId);
 
-    res.status(200).json(
-      new ApiResponse(200, {}, "Thread comment deleted successfully")
-    );
+    res
+      .status(200)
+      .json(new ApiResponse(200, {}, "Thread comment deleted successfully"));
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    throw new ApiError(500, `Failed to delete thread comment: ${error.message}`);
+    throw new ApiError(
+      500,
+      `Failed to delete thread comment: ${error.message}`
+    );
   }
 });
 
@@ -137,7 +164,6 @@ const getCommentThreads = asyncHandler(async (req, res) => {
   if (!commentId || !isValidObjectId(commentId)) {
     throw new ApiError(400, "Comment ID is required");
   }
-
   try {
     // Check if the comment exists
     const comment = await Comment.findById(commentId);
@@ -145,7 +171,22 @@ const getCommentThreads = asyncHandler(async (req, res) => {
       throw new ApiError(404, "Comment not found");
     }
 
-    // Create aggregate query
+    // Create pagination options
+    const options = {
+      page: pageNumber,
+      limit: limitNumber,
+      customLabels: {
+        totalDocs: "totalThreads",
+        docs: "threads",
+        page: "page",
+        nextPage: "next",
+        prevPage: "prev",
+        totalPages: "totalPages",
+        pagingCounter: "pagingCounter",
+        meta: "paginator",
+      },
+    };
+
     const threadAggregation = Thread.aggregate([
       {
         $match: {
@@ -153,26 +194,24 @@ const getCommentThreads = asyncHandler(async (req, res) => {
         },
       },
       {
-        $sort: { createdAt: -1 } // Sort by newest first
-      },
-      {
         $lookup: {
           from: "users",
           foreignField: "_id",
           localField: "owner",
           as: "thread_owner",
-          pipeline: [
-            {
-              $project: {
-                username: 1,
-                avatar: 1,
-              },
-            },
-          ],
         },
       },
       {
-        $unwind: "$thread_owner"
+        $unwind: "$thread_owner",
+      },
+      // Filter out threads from banned users
+      {
+        $match: {
+          "thread_owner.isBanned": { $ne: true }, // Only include threads where user is not banned
+        },
+      },
+      {
+        $sort: { createdAt: -1 }, // Sort by newest first
       },
       {
         $project: {
@@ -181,45 +220,44 @@ const getCommentThreads = asyncHandler(async (req, res) => {
           comment: 1,
           createdAt: 1,
           updatedAt: 1,
-          owner: "$thread_owner",
-        }
-      }
+          owner: {
+            _id: "$thread_owner._id",
+            username: "$thread_owner.username",
+            avatar: "$thread_owner.avatar",
+          },
+        },
+      },
     ]);
 
-    // Skip and limit for pagination
-    const skip = (pageNumber - 1) * limitNumber;
-    const threads = await threadAggregation.skip(skip).limit(limitNumber);
-
-    // Get total count for pagination
-    const totalCount = await Thread.countDocuments({
-      comment: new mongoose.Types.ObjectId(commentId)
-    });
-
-    res.status(200).json(
-      new ApiResponse(
-        200, 
-        {
-          threads,
-          pagination: {
-            totalThreads: totalCount,
-            page: pageNumber,
-            limit: limitNumber,
-            totalPages: Math.ceil(totalCount / limitNumber)
-          }
-        }, 
-        "Comment threads retrieved successfully"
-      )
+    // Use mongoose-aggregate-paginate-v2 for pagination
+    // This plugin handles both pagination and total count in a single operation
+    const paginatedResults = await Thread.aggregatePaginate(
+      threadAggregation,
+      options
     );
+
+    res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          paginatedResults,
+          "Comment threads retrieved successfully"
+        )
+      );
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    throw new ApiError(500, `Failed to retrieve comment threads: ${error.message}`);
+    throw new ApiError(
+      500,
+      `Failed to retrieve comment threads: ${error.message}`
+    );
   }
 });
 
 // Delete a threaded comment by post owner
 const deleteThreadCommentByPostOwner = asyncHandler(async (req, res) => {
   const { threadId } = req.params;
-  
+
   if (!req.user) {
     throw new ApiError(403, "You are not authorized");
   }
@@ -232,69 +270,84 @@ const deleteThreadCommentByPostOwner = asyncHandler(async (req, res) => {
     // Use aggregation pipeline to check permissions in one query
     const threadDetails = await Thread.aggregate([
       {
-        $match: { _id: new mongoose.Types.ObjectId(threadId) }
+        $match: { _id: new mongoose.Types.ObjectId(threadId) },
       },
       {
         $lookup: {
           from: "comments",
           localField: "comment",
           foreignField: "_id",
-          as: "parentComment"
-        }
+          as: "parentComment",
+        },
       },
       {
-        $unwind: "$parentComment"
+        $unwind: "$parentComment",
       },
       {
         $lookup: {
           from: "posts",
           localField: "parentComment.post",
           foreignField: "_id",
-          as: "parentPost"
-        }
+          as: "parentPost",
+        },
       },
       {
-        $unwind: "$parentPost" 
+        $unwind: "$parentPost",
       },
       {
         $project: {
           _id: 1,
-          postOwner: "$parentPost.owner"
-        }
-      }
+          postOwner: "$parentPost.owner",
+        },
+      },
     ]);
 
     if (!threadDetails || threadDetails.length === 0) {
-      throw new ApiError(404, "Thread comment not found or missing required associations");
+      throw new ApiError(
+        404,
+        "Thread comment not found or missing required associations"
+      );
     }
-    
+
     const { postOwner } = threadDetails[0];
-    
+
     // Check if user is the owner of the post
     if (postOwner.toString() !== req.user._id.toString()) {
-      throw new ApiError(403, "You are not authorized to delete this thread comment");
+      throw new ApiError(
+        403,
+        "You are not authorized to delete this thread comment"
+      );
     }
 
     // Delete the thread comment
     const result = await Thread.findByIdAndDelete(threadId);
-    
+
     if (!result) {
       throw new ApiError(404, "Failed to delete thread comment");
     }
 
-    res.status(200).json(
-      new ApiResponse(200, {}, "Thread comment deleted successfully by post owner")
-    );
+    res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          {},
+          "Thread comment deleted successfully by post owner"
+        )
+      );
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    throw new ApiError(500, `Failed to delete thread comment: ${error.message}`);
+    throw new ApiError(
+      500,
+      `Failed to delete thread comment: ${error.message}`
+    );
   }
 });
 
-export { 
-  createThreadComment, 
-  updateThreadComment, 
-  deleteThreadComment, 
+export {
+  createThreadComment,
+  updateThreadComment,
+  deleteThreadComment,
   getCommentThreads,
-  deleteThreadCommentByPostOwner 
+  deleteThreadCommentByPostOwner,
 };

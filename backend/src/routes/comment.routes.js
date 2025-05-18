@@ -7,6 +7,7 @@ import {
 } from "../controllers/comment.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { checkBanStatus } from "../middlewares/banChecker.middleware.js";
+import { analyzeContent } from "../middlewares/contentAnalyzer.middleware.js";
 
 const router = Router();
 
@@ -14,10 +15,10 @@ const router = Router();
 router.route("/post/:postId").get(verifyJWT, getPostComments);
 
 // Create a comment on a post
-router.route("/post/:postId").post(verifyJWT, checkBanStatus, createComment);
+router.route("/post/:postId").post(verifyJWT, checkBanStatus, analyzeContent, createComment);
 
 // Update a comment
-router.route("/:commentId").patch(verifyJWT, checkBanStatus, updateComment);
+router.route("/:commentId").patch(verifyJWT, checkBanStatus, analyzeContent, updateComment);
 
 // Delete a comment
 router.route("/:commentId").delete(verifyJWT, checkBanStatus, deleteComment);

@@ -10,22 +10,22 @@ const postSchema = new mongoose.Schema(
     content: {
       type: String,
       required: true,
-    },
-    tags: [
+    },    tags: [
       {
         type: String,
-        indexed: true,
+        index: true,
+        lowercase: true,
       },
     ],
     images: [
       {
         type: String,
       },
-    ],
-    isArchived:{
-      type:Boolean,
-      default:false
-    }
+    ],    isArchived: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
   { timestamps: true }
 );

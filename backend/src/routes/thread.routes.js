@@ -8,6 +8,7 @@ import {
 } from "../controllers/thread.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { checkBanStatus } from "../middlewares/banChecker.middleware.js";
+import { analyzeContent } from "../middlewares/contentAnalyzer.middleware.js";
 
 const router = Router();
 
@@ -15,10 +16,10 @@ const router = Router();
 router.route("/comment/:commentId").get(getCommentThreads);
 
 // Create a thread comment on a comment
-router.route("/comment/:commentId").post(verifyJWT, checkBanStatus, createThreadComment);
+router.route("/comment/:commentId").post(verifyJWT, checkBanStatus, analyzeContent, createThreadComment);
 
 // Update a thread comment
-router.route("/:threadId").patch(verifyJWT, checkBanStatus, updateThreadComment);
+router.route("/:threadId").patch(verifyJWT, checkBanStatus, analyzeContent, updateThreadComment);
 
 // Delete a thread comment
 router.route("/:threadId").delete(verifyJWT, checkBanStatus, deleteThreadComment);

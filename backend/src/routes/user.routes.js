@@ -27,6 +27,6 @@ router.route("/updateAvatar").patch(verifyJWT, checkBanStatus, updateAvatar);
 router.route("/updateCoverImage").patch(verifyJWT, checkBanStatus, updateCoverImage);
 router.route("/changeUsername").patch(verifyJWT, checkBanStatus, changeUserName);
 router.route("/loginUsingRefreshToken").post(verifyRefreshToken, loginUsingRefreshToken);
-router.route("/logoutFromEveryWhere").post(verifyJWT,logoutFromEveryWhere)
+router.route("/logoutFromEveryWhere").post(verifyJWT, logoutFromEveryWhere)
 
 export default router;

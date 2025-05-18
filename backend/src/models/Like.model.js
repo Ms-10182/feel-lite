@@ -11,7 +11,8 @@ const likeSchema = new mongoose.Schema({
     },
     likedBy:{
         type:Schema.Types.ObjectId,
-        ref:"User"
+        ref:"User",
+        indexed:true
     }
 },{timestamps:true})
 

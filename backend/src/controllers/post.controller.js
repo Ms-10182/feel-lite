@@ -8,6 +8,10 @@ import { isValidObjectId } from "mongoose";
 import { Like } from "../models/Like.model.js";
 
 const createPost = asyncHandler(async (req, res) => {
+  console.log("Creating post with body:", req.body);
+  console.log("Files received:", req.files);
+  console.log("User:", req.user);
+  
   const { content, tags } = req.body;
 
   if (!req.user) {

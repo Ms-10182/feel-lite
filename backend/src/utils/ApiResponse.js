@@ -21,21 +21,6 @@ class ApiResponse{
         
         this.message = message
         this.success = statusCode < 400
-    }    // Utility method to convert response to a plain object with unwrapped data
-    toUnwrappedJson() {
-        const responseObj = { 
-            statusCode: this.statusCode,
-            message: this.message,
-            success: this.success
-        }
-
-        // If this.data exists and is an object, spread its properties
-        if (this.data && typeof this.data === 'object' && !Array.isArray(this.data)) {
-            return { ...responseObj, ...this.data } 
-        }
-        
-        // Otherwise include the data property as is
-        return { ...responseObj, data: this.data }
     }
 }
 

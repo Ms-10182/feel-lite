@@ -347,6 +347,25 @@ const changeUserName = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "username updated successfully"));
 });
 
+const getUserById = asyncHandler(async (req, res) => {
+  const userId = req.params.id;
+
+  if (!userId) {
+    throw new ApiError(400, "user id is required");
+  }
+
+  const user = await User.findById(userId).select(
+    "-password -refreshToken"
+  );  
+
+  if (!user) {
+    throw new ApiError(404, "user not found");
+  }
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, user, "user retrieved successfully"));
+});
 
 export {
   registerUser,
@@ -359,5 +378,6 @@ export {
   updateCoverImage,
   changeUserName,
   loginUsingRefreshToken,
-  logoutFromEveryWhere
+  logoutFromEveryWhere,
+  getUserById
 };

@@ -2,6 +2,7 @@ import express, { urlencoded } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { processExpiredBans, scheduleTask } from "./utils/scheduler.js";
+import { errorHandler } from "./utils/errorHandler.js";
 
 const app = express();
 
@@ -30,6 +31,9 @@ app.use("/api/v1/likes", LikeRouter);
 app.use("/api/v1/bookmarks", BookmarkRouter);
 app.use("/api/v1/threads", ThreadRouter);
 app.use("/api/v1/admin", AdminRouter);
+
+// Error handling middleware (must be last)
+app.use(errorHandler);
 
 // Schedule automatic ban expiration check every hour
 // 1 hour = 60 * 60 * 1000 milliseconds

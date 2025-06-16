@@ -1,7 +1,7 @@
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { Post } from "../models/Post.model.js"; // Assuming you have a Post model
+import { Post } from "../models/Post.model.js"; 
 import { Comment } from "../models/Comment.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { isValidObjectId } from "mongoose";
@@ -503,6 +503,7 @@ const getPostByHashTag = asyncHandler(async (req, res) => {
     throw new ApiError(500, `Failed to retrieve posts: ${error.message}`);
   }
 });
+
 const getGlobalFeed = asyncHandler(async (req, res) => {
   
   // recent posts -> limit 10 post sort-> creaated at -1,

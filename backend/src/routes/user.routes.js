@@ -15,7 +15,8 @@ import {
   changePassword,
   generateOtp,
   updateAccountDetails,
-  deleteAccount
+  deleteAccount,
+  forgotPassword
 } from "../controllers/otp_users/otp.users.controller.js";
 import {
   verifyJWT,
@@ -44,10 +45,13 @@ router
 router.route("/logoutFromEveryWhere").post(verifyJWT, logoutFromEveryWhere);
 
 //otp routes
+router.route("/unauth/generateOtp").post(generateOtp);
+router.route("/forgotPassword").post(forgotPassword);
+
 router.use(verifyJWT);
 router.use(checkBanStatus);
+router.route("/auth/generateOtp").post(generateOtp);
 router.route("/deleteAccount").delete(relogin,verifyOtp, deleteAccount);
-router.route("/generateOtp").post(generateOtp);
 router.route("/changePassword").patch(verifyOtp,changePassword);
 router.route("/updateAccountDetails").patch(verifyOtp,updateAccountDetails);
 

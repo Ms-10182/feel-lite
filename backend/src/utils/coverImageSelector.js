@@ -13,13 +13,14 @@ const coverImages = [
 
 const getCoverImageUrl = ()=>{
     const index = Math.floor(Math.random() * coverImages.length)
-    return coverImages[index]
+    return `https://picsum.photos/800/300?random=${coverImages[index]}`
 }
 const isCoverImageAvailable = (coverImageIdx)=>{
-    return (coverImageIdx<=coverImages.length-1 && coverImageIdx>=0)
+    // return (coverImageIdx<=coverImages.length-1 && coverImageIdx>=0)
+    return true;
 }
 
 const getCustomCoverImageUrl = (coverImageIdx)=>{
-    return coverImages[coverImageIdx]
+    return `https://picsum.photos/800/300?random=${coverImageIdx}`
 }
 export { getCoverImageUrl, isCoverImageAvailable, getCustomCoverImageUrl }

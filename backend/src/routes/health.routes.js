@@ -2,8 +2,7 @@ import { Router } from "express";
 import { ApiResponse } from "../utils/ApiResponse.js";
 
 const router = Router();
-
-router.route("/health").get((req, res) => {
+router.route("/").get((req, res) => {
   return res
     .status(200)
     .json(

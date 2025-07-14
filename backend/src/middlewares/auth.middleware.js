@@ -18,7 +18,7 @@ const verifyJWT = asyncHandler(async (req, _, next) => {
     // console.log(decodedToken)
 
     const user = await User.findById(decodedToken._id).select(
-      "-password -refreshToken"
+      "-password -refreshToken -email"
     );
 
     if (!user) {
@@ -59,14 +59,17 @@ const verifyRefreshToken = asyncHandler(async (req, _, next) => {
     );
     console.log(decodedToken);
 
-    const user = await User.findById(decodedToken._id);
+    const user = await User.findById(decodedToken._id).select(
+      "-password -email"
+    );
 
     if (!user) {
-      throw new ApiError(401, "invalid access token or expired");
+      throw new ApiError(401, "invalid refresh token or expired");
     }
-
+    console.log(incomingRefreshToken)
+     console.log( user.refreshToken);
     if (incomingRefreshToken !== user.refreshToken) {
-      throw new ApiError(401, "invalid token or expired");
+      throw new ApiError(401, "invalid refresh token or expired");
     }
     req.user = user;
 

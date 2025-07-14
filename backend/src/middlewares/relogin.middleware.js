@@ -7,7 +7,6 @@ const relogin = asyncHandler(async(req,_,next)=>{
     throw new ApiError(403,"unauthorized error");
   }
 
-  console.log(req);
   const {password} = req.body;
 
   if(!password || password.trim()===""){

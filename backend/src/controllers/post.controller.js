@@ -6,12 +6,14 @@ import { Comment } from "../models/Comment.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { isValidObjectId } from "mongoose";
 import { Like } from "../models/Like.model.js";
+import mongoose from "mongoose";
 
 const createPost = asyncHandler(async (req, res) => {
   console.log("Creating post with body:", req.body);
   console.log("Files received:", req.files);
   console.log("User:", req.user);
   
+  console.log(req.body);
   const { content, tags } = req.body;
 
   if (!req.user) {
@@ -66,10 +68,69 @@ const getPost = asyncHandler(async (req, res) => {
     const post = await Post.aggregate([
       {
         $match: {
-          _id: postId,
+          _id: new mongoose.Types.ObjectId(postId),
+        },
+      },{
+        $lookup: {
+          from: "likes",
+          localField: "_id",
+          foreignField: "post",
+          as: "likes",
+        },
+      },
+      {
+        $addFields: {
+          totalLikes: { $size: "$likes" },
+          isLiked: {
+            $cond: {
+              if: {
+                $gt: [
+                  { $size: { $filter: { 
+                    input: "$likes", 
+                    as: "like", 
+                    cond: { $eq: ["$$like.likedBy", req.user?._id] } 
+                  }}}, 
+                  0
+                ]
+              },
+              then: true,
+              else: false,
+            },
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "owner",
+          foreignField: "_id",
+          as: "owner",
+        },
+      },
+      {
+        $unwind: "$owner",
+      },
+      {
+        $match: { "owner.isBanned": { $ne: true } },
+      },
+      {
+        $project: {
+          _id: 1,
+          content: 1,
+          images: 1,
+          tags: 1,
+          createdAt: 1,
+          totalLikes: 1,
+          isLiked: 1,
+          owner: {
+            _id: "$owner._id",
+            username: "$owner.username",
+            avatar: "$owner.avatar",
+          },
         },
       },
     ]);
+    console.log("Post found:", post);
 
     if (!post) {
       throw new ApiError(404, "Post not found");
@@ -192,6 +253,98 @@ const unArchivePost = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "post unarchived successfully"));
 });
 
+const getArchivedPosts = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    throw new ApiError(403, "unauthorized access");
+  }
+  
+  const { limit = 20, page = 1 } = req.query;
+  const pageNumber = parseInt(page, 10);
+  const limitNumber = parseInt(limit, 10);
+  
+  const postsAggregate = Post.aggregate([
+    { $match: { owner: req.user._id, isArchived: true } },
+    { $sort: { createdAt: -1 } },
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "post_owner",
+      },
+    },
+    { $unwind: "$post_owner" },
+    { $match: { "post_owner.isBanned": { $ne: true } } },
+    {
+      $lookup:{
+        from: "likes",
+        localField: "_id",
+        foreignField: "post",
+        as: "likes"
+      }
+    },
+    {
+      $addFields:{
+        totalLikes:{
+          $size: "$likes"
+        },
+        isLiked:{
+          $cond:{
+            if:{
+              $gt: [
+                { $size: { $filter: { 
+                  input: "$likes", 
+                  as: "like", 
+                  cond: { $eq: ["$$like.likedBy", req.user._id] } 
+                }}}, 
+                0
+              ]
+            },
+            then:true,
+            else:false,
+          }
+        }
+      }
+    },
+    {
+      $project: {
+        _id: 1,
+        content: 1,
+        images: 1,
+        tags: 1,
+        createdAt: 1,
+        totalLikes: 1,
+        isLiked: 1,
+        owner: {
+          _id: "$post_owner._id",
+          username: "$post_owner.username",
+          avatar: "$post_owner.avatar",
+        },
+      },
+    },
+  ]);
+
+  const options = {
+    page: pageNumber,
+    limit: limitNumber
+  };
+
+  try {
+    const result = await Post.aggregatePaginate(postsAggregate, options);
+
+    if (!result || !result.docs || result.docs.length === 0) {
+      throw new ApiError(404, "No archived posts found for this user");
+    }
+
+    res
+      .status(200)
+      .json(new ApiResponse(200, result, "Archived posts retrieved successfully"));
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(500, `Failed to retrieve archived posts: ${error.message}`);
+  }
+});
+
 const getNewPosts = asyncHandler(async (req, res) => {
   if (!req.user) {
     throw new ApiError(403, "unauthorized access");
@@ -203,6 +356,7 @@ const getNewPosts = asyncHandler(async (req, res) => {
       // Match likes by this user and that have a post (not comment likes)
       {
         $match: {
+
           likedBy: req.user._id,
           post: { $exists: true, $ne: null },
         },
@@ -244,7 +398,7 @@ const getNewPosts = asyncHandler(async (req, res) => {
       { $limit: 10 },
       { $project: { _id: 0, tag: "$_id", count: 1 } },
     ]);
-
+    
     const commentedPostsTags = await Comment.aggregate([
       // Match likes by this user and that have a post (not comment likes)
       {
@@ -348,6 +502,84 @@ const getNewPosts = asyncHandler(async (req, res) => {
       { $sort: { createdAt: -1 } },
       // Limit results
       { $limit: 20 },
+      {
+        $lookup:{
+          from: "likes",
+          localField: "_id",
+          foreignField: "post",
+          as: "likes"
+        }
+      },
+      {
+        $addFields:{
+          totalLikes:{
+            $size: "$likes"
+          },
+          isLiked:{
+            $cond:{
+              if:{
+                $gt: [
+                  { $size: { $filter: { 
+                    input: "$likes", 
+                    as: "like", 
+                    cond: { $eq: ["$$like.likedBy", req.user._id] } 
+                  }}}, 
+                  0
+                ]
+              },
+              then:true,
+              else:false,
+            }
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: "bookmarkedposts",
+          let: { postId: "$_id" },
+          pipeline: [
+            { 
+              $match: { 
+                $expr: { 
+                  $eq: ["$post", "$$postId"] 
+                } 
+              } 
+            },
+            { 
+              $lookup: {
+                from: "bookmarks",
+                localField: "bookmark",
+                foreignField: "_id",
+                as: "bookmarkDetails"
+              } 
+            },
+            { $match: { "bookmarkDetails.owner": req.user._id } },
+          ],
+          as: "userBookmarks"
+        }
+      },
+      {
+        $addFields: {
+          totalLikes: { $size: "$likes" },
+          isLiked: {
+            $cond: {
+              if: {
+                $gt: [
+                  { $size: { $filter: {
+                    input: "$likes",
+                    as: "like",
+                    cond: { $eq: ["$$like.likedBy", req.user._id] }
+                  }}},
+                  0
+                ]
+              },
+              then: true,
+              else: false,
+            }
+          },
+          isBookmarked: { $gt: [ { $size: "$userBookmarks" }, 0 ] }
+        }
+      },
       // Project needed fields
       {
         $project: {
@@ -356,6 +588,9 @@ const getNewPosts = asyncHandler(async (req, res) => {
           images: 1,
           tags: 1,
           createdAt: 1,
+          totalLikes: 1,
+          isLiked: 1,
+          isBookmarked: 1,
           owner: {
             _id: "$post_owner._id",
             username: "$post_owner.username",
@@ -390,6 +625,82 @@ const getNewPosts = asyncHandler(async (req, res) => {
         { $sort: { createdAt: -1 } },
         // Limit results
         { $limit: 20 - recommendedPosts.length },
+        // Add likes lookup
+        {
+          $lookup:{
+            from: "likes",
+            localField: "_id",
+            foreignField: "post",
+            as: "likes"
+          }
+        },
+        // Add like count and isLiked fields
+        {
+          $addFields:{
+            totalLikes:{
+              $size: "$likes"
+            },
+            isLiked:{
+              $cond:{
+                if:{
+                  $gt: [
+                    { $size: { $filter: { 
+                      input: "$likes", 
+                      as: "like", 
+                      cond: { $eq: ["$$like.likedBy", req.user._id] } 
+                    }}}, 
+                    0
+                  ]
+                },
+                then:true,
+                else:false,
+              }
+            }
+          }
+        },
+        {
+          $lookup: {
+            from: "bookmarkedposts",
+            let: { postId: "$_id" },
+            pipeline: [
+              { $match: { $expr: { $and: [
+                { $eq: ["$post", "$$postId"] },
+                { $eq: ["$bookmark", { $ifNull: [null, null] }] } // placeholder, will be replaced
+              ] } } },
+              { $lookup: {
+                from: "bookmarks",
+                localField: "bookmark",
+                foreignField: "_id",
+                as: "bookmarkDetails"
+              } },
+              { $unwind: "$bookmarkDetails" },
+              { $match: { "bookmarkDetails.owner": req.user._id } },
+            ],
+            as: "userBookmarks"
+          }
+        },
+        {
+          $addFields: {
+            totalLikes: { $size: "$likes" },
+            isLiked: {
+              $cond: {
+                if: {
+                  $gt: [
+                    { $size: { $filter: {
+                      input: "$likes",
+                      as: "like",
+                      cond: { $eq: ["$$like.likedBy", req.user._id] }
+                    }}},
+                    0
+                  ]
+                },
+                then: true,
+                else: false,
+              }
+            },
+            isBookmarked: { $gt: [ { $size: "$userBookmarks" }, 0 ] }
+          }
+        },
         // Project needed fields
         {
           $project: {
@@ -398,6 +709,9 @@ const getNewPosts = asyncHandler(async (req, res) => {
             images: 1,
             tags: 1,
             createdAt: 1,
+            totalLikes: 1,
+            isLiked: 1,
+            isBookmarked: 1,
             owner: {
               _id: "$post_owner._id",
               username: "$post_owner.username",
@@ -466,6 +780,82 @@ const getPostByHashTag = asyncHandler(async (req, res) => {
     { $match: { "post_owner.isBanned": { $ne: true } } },
     // Sort by newest first
     { $sort: { createdAt: -1 } },
+    // Lookup likes
+    {
+      $lookup:{
+        from: "likes",
+        localField: "_id",
+        foreignField: "post",
+        as: "likes"
+      }
+    },
+    // Add like count and isLiked fields
+    {
+      $addFields:{
+        totalLikes:{
+          $size: "$likes"
+        },
+        isLiked:{
+          $cond:{
+            if:{
+              $gt: [
+                { $size: { $filter: { 
+                  input: "$likes", 
+                  as: "like", 
+                  cond: { $eq: ["$$like.likedBy", req.user._id] } 
+                }}}, 
+                0
+              ]
+            },
+            then:true,
+            else:false,
+          }
+        }
+      }
+    },
+    {
+      $lookup: {
+        from: "bookmarkedposts",
+        let: { postId: "$_id" },
+        pipeline: [
+          { $match: { $expr: { $and: [
+            { $eq: ["$post", "$$postId"] },
+            { $eq: ["$bookmark", { $ifNull: [null, null] }] } // placeholder, will be replaced
+          ] } } },
+          { $lookup: {
+            from: "bookmarks",
+            localField: "bookmark",
+            foreignField: "_id",
+            as: "bookmarkDetails"
+          } },
+          { $unwind: "$bookmarkDetails" },
+          { $match: { "bookmarkDetails.owner": req.user._id } },
+        ],
+        as: "userBookmarks"
+      }
+    },
+    {
+      $addFields: {
+        totalLikes: { $size: "$likes" },
+        isLiked: {
+          $cond: {
+            if: {
+              $gt: [
+                { $size: { $filter: {
+                  input: "$likes",
+                  as: "like",
+                  cond: { $eq: ["$$like.likedBy", req.user._id] }
+                }}},
+                0
+              ]
+            },
+            then: true,
+            else: false,
+          }
+        },
+        isBookmarked: { $gt: [ { $size: "$userBookmarks" }, 0 ] }
+      }
+    },
     // Project needed fields
     {
       $project: {
@@ -474,6 +864,9 @@ const getPostByHashTag = asyncHandler(async (req, res) => {
         images: 1,
         tags: 1,
         createdAt: 1,
+        totalLikes: 1,
+        isLiked: 1,
+        isBookmarked: 1,
         owner: {
           _id: "$post_owner._id",
           username: "$post_owner.username",
@@ -504,6 +897,140 @@ const getPostByHashTag = asyncHandler(async (req, res) => {
   }
 });
 
+const getMyPosts  = asyncHandler(async(req,res)=>{
+  if(!req.user){
+    throw new ApiError(403, "unauthorized access");
+  }
+
+  const { limit = 20, page = 1 } = req.query;
+  const pageNumber = parseInt(page, 10);
+  const limitNumber = parseInt(limit, 10);
+
+  const postsAggregate = Post.aggregate([
+    // Match user's non-archived posts first for better performance
+    { 
+      $match: { 
+        owner: req.user._id, 
+        isArchived: { $ne: true } 
+      } 
+    },
+    // Sort by newest first
+    { $sort: { createdAt: -1 } },
+    // Lookup post owner details
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "post_owner",
+      },
+    },
+    { $unwind: "$post_owner" },
+    // Exclude posts from banned users
+    { $match: { "post_owner.isBanned": { $ne: true } } },
+    // Lookup likes
+    {
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "post",
+        as: "likes"
+      }
+    },
+    // Lookup bookmarks - fixed the incorrect query
+    {
+      $lookup: {
+        from: "bookmarkedposts",
+        localField: "_id",
+        foreignField: "post",
+        as: "bookmarkedPosts"
+      }
+    },
+    {
+      $lookup: {
+        from: "bookmarks",
+        let: { bookmarkedPosts: "$bookmarkedPosts" },
+        pipeline: [
+          { 
+            $match: { 
+              $expr: { 
+                $and: [
+                  { $in: ["$_id", "$$bookmarkedPosts.bookmark"] },
+                  { $eq: ["$owner", req.user._id] }
+                ]
+              } 
+            } 
+          }
+        ],
+        as: "userBookmarks"
+      }
+    },
+    // Add computed fields
+    {
+      $addFields: {
+        totalLikes: { $size: "$likes" },
+        isLiked: {
+          $cond: {
+            if: {
+              $gt: [
+                { 
+                  $size: { 
+                    $filter: { 
+                      input: "$likes", 
+                      as: "like", 
+                      cond: { $eq: ["$$like.likedBy", req.user._id] } 
+                    }
+                  } 
+                }, 
+                0
+              ]
+            },
+            then: true,
+            else: false
+          }
+        },
+        isBookmarked: { $gt: [{ $size: "$userBookmarks" }, 0] }
+      }
+    },
+    // Project only necessary fields
+    {
+      $project: {
+        _id: 1,
+        content: 1,
+        images: 1,
+        tags: 1,
+        createdAt: 1,
+        totalLikes: 1,
+        isLiked: 1,
+        isBookmarked: 1,
+        owner: {
+          _id: "$post_owner._id",
+          username: "$post_owner.username",
+          avatar: "$post_owner.avatar",
+        }
+      }
+    }
+  ]);
+  const options = {
+    page: pageNumber,
+    limit: limitNumber
+  };
+  try {
+    const result = await Post.aggregatePaginate(postsAggregate, options);
+
+    if (!result || !result.docs || result.docs.length === 0) {
+      throw new ApiError(404, "No posts found for this user");
+    }
+
+    res
+      .status(200)
+      .json(new ApiResponse(200, result, "Posts fetched successfully"));
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(500, `Failed to retrieve posts: ${error.message}`);
+  }
+})
+
 const getGlobalFeed = asyncHandler(async (req, res) => {
   
   // recent posts -> limit 10 post sort-> creaated at -1,
@@ -511,10 +1038,199 @@ const getGlobalFeed = asyncHandler(async (req, res) => {
   //some posts of recent of like 36 hours
   // fetch recent interaction -> get user id -> fetch new posts of the user id
   // fetch recent posts post -> count likes ,count comments -> pick top 20
+  if (!req.user) {
+    throw new ApiError(403, "unauthorized access");
+  }
+  const { limit = 20, page = 1 } = req.query;
+  const pageNumber = parseInt(page, 10);
+  const limitNumber = parseInt(limit, 10);
 
+  const postsAggregate = Post.aggregate([
+    { $match: { isArchived: { $ne: true } } },
+    { $sort: { createdAt: -1 } },
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "post_owner",
+      },
+    },
+    { $unwind: "$post_owner" },
+    { $match: { "post_owner.isBanned": { $ne: true } } },
+    {
+      $lookup:{
+        from: "likes",
+        localField: "_id",
+        foreignField: "post",
+        as: "likes"
+      }
+    },
+    {
+      $addFields:{
+        totalLikes:{
+          $size: "$likes"
+        },
+        isLiked:{
+          $cond:{
+            if:{
+              $gt: [
+                { $size: { $filter: { 
+                  input: "$likes", 
+                  as: "like", 
+                  cond: { $eq: ["$$like.likedBy", req.user._id] } 
+                }}}, 
+                0
+              ]
+            },
+            then:true,
+            else:false,
+          }
+        }
+      }
+    },
+    {
+      $lookup: {
+        from: "bookmarkedposts",
+        let: { postId: "$_id" },
+        pipeline: [
+          { $match: { $expr: { $and: [
+            { $eq: ["$post", "$$postId"] },
+            { $eq: ["$bookmark", { $ifNull: [null, null] }] } // placeholder, will be replaced
+          ] } } },
+          { $lookup: {
+            from: "bookmarks",
+            localField: "bookmark",
+            foreignField: "_id",
+            as: "bookmarkDetails"
+          } },
+          { $unwind: "$bookmarkDetails" },
+          { $match: { "bookmarkDetails.owner": req.user._id } },
+        ],
+        as: "userBookmarks"
+      }
+    },
+    {
+      $addFields: {
+        totalLikes: { $size: "$likes" },
+        isLiked: {
+          $cond: {
+            if: {
+              $gt: [
+                { $size: { $filter: {
+                  input: "$likes",
+                  as: "like",
+                  cond: { $eq: ["$$like.likedBy", req.user._id] }
+                }}},
+                0
+              ]
+            },
+            then: true,
+            else: false,
+          }
+        },
+        isBookmarked: { $gt: [ { $size: "$userBookmarks" }, 0 ] }
+      }
+    },
+    {
+      $project: {
+        _id: 1,
+        content: 1,
+        images: 1,
+        tags: 1,
+        createdAt: 1,
+        totalLikes: 1,
+        isLiked: 1,
+        isBookmarked: 1,
+        owner: {
+          _id: "$post_owner._id",
+          username: "$post_owner.username",
+          avatar: "$post_owner.avatar",
+        },
+      },
+    },
+  ]);
+
+  const options = {
+    page: pageNumber,
+    limit: limitNumber
+  };
+
+    const result = await Post.aggregatePaginate(postsAggregate, options);
+
+    if (!result || !result.docs || result.docs.length === 0) {
+      throw new ApiError(404, "No posts found");
+    }
+
+    res
+      .status(200)
+      .json(new ApiResponse(200, result, "Global feed posts fetched successfully"));
 
 });
 
+const getTrendingPosts = asyncHandler(async (req, res) => {
+  if (!req.user) {  
+    throw new ApiError(403, "You are not authorized");
+  }
+  const { limit = 20, page = 1 } = req.query;
+  const pageNumber = parseInt(page, 10);
+  const limitNumber = parseInt(limit, 10);
+
+  const postsAggregate = Post.aggregate([
+    { $match: { isArchived: { $ne: true } } },
+    {
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "post",
+        as: "likes",
+      },
+    },
+    {
+      $addFields: {
+        totalLikes: { $size: "$likes" },
+      },
+    },
+    { $sort: { totalLikes: -1, createdAt: -1 } }, // Sort by likes and then by date
+    { $limit: limitNumber }, // Limit to the specified number of posts
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "post_owner",
+      },
+    },
+    { $unwind: "$post_owner" },
+    { $match: { "post_owner.isBanned": { $ne: true } } },
+    {
+      $project: {
+        _id: 1,
+        content: 1,
+        images: 1,
+        tags: 1,
+        createdAt: 1,
+        totalLikes: 1,
+        owner: {
+          _id: "$post_owner._id",
+          username: "$post_owner.username",
+          avatar: "$post_owner.avatar",
+        },
+      },
+    },
+  ])
+  const options = {
+    page: pageNumber,
+    limit: limitNumber
+  };
+  const result = await Post.aggregatePaginate(postsAggregate, options);
+  if (!result || !result.docs || result.docs.length === 0) {
+    throw new ApiError(404, "No trending posts found");
+  }
+
+  res.status(200).json(new ApiResponse(200, result, "Trending posts fetched successfully"));
+
+})
 export {
   createPost,
   getPost,
@@ -524,5 +1240,8 @@ export {
   unArchivePost,
   getNewPosts,
   getPostByHashTag,
-  getGlobalFeed
+  getGlobalFeed,
+  getMyPosts,
+  getArchivedPosts,
+  getTrendingPosts
 };

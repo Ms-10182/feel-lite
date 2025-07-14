@@ -25,6 +25,7 @@ const togglePostLike = asyncHandler(async (req, res) => {
       likedBy: req.user._id,
     });
 
+    console.log("like toggled");
     if (!like) {
       throw new ApiError(500, "failed to like the post");
     }

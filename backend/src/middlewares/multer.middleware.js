@@ -2,6 +2,7 @@ import multer from "multer"
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
+      console.log("Multer processing file:", file.fieldname);
       cb(null, "./public/temp")
     },
     filename: function (req, file, cb) {
@@ -10,4 +11,14 @@ const storage = multer.diskStorage({
     }
   })
   
-export const upload = multer({ storage: storage })
+export const upload = multer({ 
+  storage: storage,
+  fileFilter: function (req, file, cb) {
+    console.log("Received field:", file.fieldname);
+    // Allow only images
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new Error('Only image files are allowed!'), false);
+    }
+    cb(null, true);
+  }
+})

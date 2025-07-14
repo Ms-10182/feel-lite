@@ -12,16 +12,18 @@ const avatars = [
 ];
 
 const getAvatarUrl = () => {
-    const index = Math.floor(Math.random() * 10);
-    return avatars[index];
+    const index = Math.floor(Math.random() * 1000);
+    // return avatars[index];
+    return `https://api.dicebear.com/7.x/bottts/svg?seed=${index}`;
 };
 
 const isAvatarAvailable =(avatarIdx)=>{
-    return (avatarIdx <= avatars.length-1 && avatarIdx>=0)
+    // return (avatarIdx <= avatars.length-1 && avatarIdx>=0)
+    return true;
 }
 
 const getCustomAvatarUrl =(avatarIdx)=>{
-    return avatars[avatarIdx]
+    return `https://api.dicebear.com/7.x/bottts/svg?seed=${avatarIdx}`
 }
 
 export { getAvatarUrl, isAvatarAvailable, getCustomAvatarUrl };

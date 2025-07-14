@@ -50,6 +50,35 @@ const getPostComments = asyncHandler(async (req, res) => {
         },
       },
       {
+        $lookup: {
+          from: "likes",
+          localField: "_id",
+          foreignField: "comment",
+          as: "likes"
+        }
+      },
+      {
+        $addFields: {
+          totalLikes: { $size: "$likes" },
+          isLiked: {
+            $cond: {
+              if: {
+                $gt: [
+                  { $size: { $filter: { 
+                    input: "$likes", 
+                    as: "like", 
+                    cond: { $eq: ["$$like.likedBy", req.user._id] } 
+                  }}}, 
+                  0
+                ]
+              },
+              then: true,
+              else: false,
+            }
+          }
+        }
+      },
+      {
         $sort: { createdAt: -1 }, // Sort by newest first
       },
       {
@@ -58,7 +87,10 @@ const getPostComments = asyncHandler(async (req, res) => {
           content: 1,
           comment: 1,
           createdAt: 1,
-          updatedAt: 1,          owner: {
+          updatedAt: 1,
+          totalLikes: 1,
+          isLiked: 1,
+          owner: {
             _id: "$comment_owner._id",
             username: "$comment_owner.username",
             avatar: "$comment_owner.avatar",

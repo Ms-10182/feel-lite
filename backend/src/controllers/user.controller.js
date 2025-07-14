@@ -28,7 +28,6 @@ const generateAccessAndRefreshToken = async (user) => {
   }
 };
 
-
 const registerUser = asyncHandler(async (req, res) => {
   //take user details
   //check if email exist of not
@@ -125,7 +124,7 @@ const loginUser = asyncHandler(async (req, res) => {
     await generateAccessAndRefreshToken(user);
 
   const loggedInUser = await User.findById(user._id).select(
-    "-password -refreshToken"
+    "-password -refreshToken -email"
   );
 
   const options = {
@@ -164,7 +163,7 @@ const loginUsingRefreshToken = asyncHandler(async (req, res) => {
     await generateAccessAndRefreshToken(user);
 
   const loggedInUser = await User.findById(user._id).select(
-    "-password -refreshToken"
+    "-password -refreshToken -email"
   );
 
   const options = {
@@ -230,58 +229,6 @@ const getUser = asyncHandler(async (req, res) => {
   res
     .status(200)
     .json(new ApiResponse(200, req.user, "user retrieved successfully"));
-});
-
-const changePassword = asyncHandler(async (req, res) => {
-  const { oldPassword, newPassword } = req.body;
-  console.log(oldPassword, newPassword);
-  if (!oldPassword || !newPassword) {
-    throw new ApiError(400, "both old and new passwords are required");
-  }
-  if (oldPassword === newPassword) {
-    throw new ApiError(400, "same password not allowed");
-  }
-
-  const user = await User.findById(req.user?._id);
-
-  const isPasswordValid = await user.isPasswordCorrect(oldPassword);
-  console.log(isPasswordValid);
-  if (!isPasswordValid) {
-    throw new ApiError(401, "old password wrong");
-  }
-
-  user.password = newPassword;
-  await user.save({ validateBeforeSave: false });
-
-  res
-    .status(200)
-    .json(new ApiResponse(200, {}, "password changed sucessfully"));
-});
-
-const updateAccountDetails = asyncHandler(async (req, res) => {
-  const { newEmail } = req.body;
-
-  if (!newEmail) {
-    throw new ApiError(401, "please provide valid email id");
-  }
-
-  const isEmailAlreadyRegistered = await User.findOne({ email: newEmail });
-
-  if (isEmailAlreadyRegistered) {
-    throw new ApiError(
-      400,
-      "email already registered, provide a different email"
-    );
-  }
-
-  const user = await User.findById(req.user?._id);
-
-  user.email = newEmail;
-  await user.save({ validateBeforeSave: false });
-
-  res
-    .status(200)
-    .json(new ApiResponse(200, {}, "account updated successfully"));
 });
 
 const updateAvatar = asyncHandler(async (req, res) => {
@@ -372,8 +319,6 @@ export {
   loginUser,
   logoutUser,
   getUser,
-  changePassword,
-  updateAccountDetails,
   updateAvatar,
   updateCoverImage,
   changeUserName,

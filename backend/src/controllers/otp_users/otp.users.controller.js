@@ -11,6 +11,13 @@ import { BookmarkedPost } from "../../models/BookmarkedPost.model.js";
 import { Post } from "../../models/Post.model.js";
 import { Like } from "../../models/Like.model.js";
 import { Thread } from "../../models/Thread.models.js";
+import {  getAvatarUrl,
+} from "../../utils/avatarSelector.js";
+import {
+  getCoverImageUrl,
+} from "../../utils/coverImageSelector.js";
+
+import { generateUsername } from "../../utils/usernameGenerator.js";
 
 const generateOtp = asyncHandler(async (req, res) => {
   let userId;
@@ -22,21 +29,32 @@ const generateOtp = asyncHandler(async (req, res) => {
     userId = req.user._id;
     userEmail = req.user.email || (await User.findById(req.user._id)).email;
   } else {
-    // For unauthenticated users (like forgot password)
-    const { email } = req.body;
+    // For unauthenticated users (like registration or forgot password)
+    const { email, isRegistration } = req.body;
     console.log("Generating OTP for unauthenticated user");
 
     if (!email) {
       throw new ApiError(400, "Email is required for OTP generation");
     }
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      throw new ApiError(404, "User not found with this email");
+    // For registration, we check if user doesn't exist
+    // For forgot password, we check if user exists
+    const existingUser = await User.findOne({ email });
+    if (isRegistration) {
+      if (existingUser) {
+        throw new ApiError(400, "User already exists with this email");
+      }
+      // For registration, we'll use a temporary reference
+      userId = null;
+      userEmail = email;
+    } else {
+      // For forgot password
+      if (!existingUser) {
+        throw new ApiError(404, "User not found with this email");
+      }
+      userId = existingUser._id;
+      userEmail = existingUser.email;
     }
-
-    userId = user._id;
-    userEmail = user.email;
   }
 
 
@@ -61,7 +79,8 @@ const generateOtp = asyncHandler(async (req, res) => {
 
   try {
     await Otp.create({
-      owner: userId,
+      owner: userId || undefined,
+      tempEmail: userId ? undefined : userEmail, // Use tempEmail for registration
       otp: newOtpNum,
       expiry: new Date(Date.now() + 10 * 60 * 1000),
     });
@@ -79,6 +98,82 @@ const generateOtp = asyncHandler(async (req, res) => {
   });
 
   res.status(200).json(new ApiResponse(200, "otp sent to mail"));
+});
+
+const registerUser = asyncHandler(async (req, res) => {
+  //take user details
+  //check if email exist of not
+  //generate username
+  //assign cover image
+  //assign avtar
+  //create user
+  console.log("registering user");
+
+  const { email, otp, password, age } = req.body;
+
+  if(otp.length !== 6){
+    throw new ApiError(400, "otp must be 6 digits");
+  }
+
+  if ([email, otp, password].some((item) => item?.trim() === "")) {
+    throw new ApiError(400, "all fields are required");
+  }
+
+  if (age < age || typeof age != "number") {
+    throw new ApiError(400, `age is too low, required age is ${age}`);
+  }
+
+  const existingUser = await User.findOne({
+    email: email,
+  });
+
+  if (existingUser) {
+    throw new ApiError(400, "user already exists");
+  }
+
+  // First find if there's an OTP for this email (through temporary reference)
+  const tempUser = await Otp.findOne({ tempEmail: email }).sort({ createdAt: -1 });
+  if (!tempUser) {
+    throw new ApiError(400, "no otp found for this email, please generate OTP first");
+  }
+
+  const isOtpValid = await tempUser.isOtpCorrect(otp);
+  if (!isOtpValid) {
+    throw new ApiError(400, "otp is incorrect");
+  }
+
+  // Delete OTP after successful verification
+  await tempUser.deleteOne();
+
+
+  const username = generateUsername();
+  const avatarUrl = getAvatarUrl();
+  const coverImageUrl = getCoverImageUrl();
+  const logoutPin = Math.floor(Math.random()*10000)
+
+  const user = await User.create({
+    username,
+    email,
+    avatar: avatarUrl,
+    coverImage: coverImageUrl,
+    password,
+    logoutPin:logoutPin
+  });
+  console.log(user);
+
+  const createdUser = await User.findOne({ email }).select(
+    "-password -refreshToken"
+  );
+
+  if (!createdUser) {
+    throw new ApiError(500, "user not registered");
+  }
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200 ,{}, "user registered sucessfully")
+    );
 });
 
 const changePassword = asyncHandler(async (req, res) => {
@@ -315,4 +410,4 @@ const forgotPassword = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, {}, "password changed successfully"));
 });
 
-export { generateOtp, changePassword, updateAccountDetails, deleteAccount, forgotPassword };
+export { generateOtp, changePassword, updateAccountDetails, deleteAccount, forgotPassword, registerUser };

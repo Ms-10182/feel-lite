@@ -1,18 +1,25 @@
 import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcrypt"
 const otpSchema = new mongoose.Schema({
-    owner:{
+    owner: {
         type: Schema.Types.ObjectId,
-        ref:"User",
-        index:true
+        ref: "User",
+        index: true,
+        sparse: true  // Allow null values since registration won't have an owner
     },
-    otp:{
-        type:String,
+    tempEmail: {
+        type: String,
+        index: true,
+        sparse: true  // Allow null values since authenticated requests won't have tempEmail
     },
-    expiry:{
-        type:Date
+    otp: {
+        type: String,
+        required: true
+    },
+    expiry: {
+        type: Date,
+        required: true
     }
-
 }, { timestamps: true });
 
 otpSchema.pre("save", async function (next) {

@@ -14,6 +14,7 @@ const analyzeContent = asyncHandler(async (req, _, next) => {
   if (!content || content.trim() === "") {
     throw new ApiError(400, "Content is required");
   }
+
   const DISCOVERY_URL =
     "https://commentanalyzer.googleapis.com/$discovery/rest?version=v1alpha1";
 
@@ -26,66 +27,82 @@ const analyzeContent = asyncHandler(async (req, _, next) => {
       TOXICITY: {},
       SEVERE_TOXICITY: {},
       INSULT: {},
-      SEXUALLY_EXPLICIT: {},
       PROFANITY: {},
       THREAT: {},
       IDENTITY_ATTACK: {},
     },
+    languages: ['en'], // Try English first
+    doNotStore: true,
   };
 
-  // Convert callback-based function to Promise and await it
-  const response = await new Promise((resolve, reject) => {
-    client.comments.analyze(
-      {
-        key: API_KEY,
-        resource: analyzeRequest,
-      },
-      (err, response) => {
-        if (err) {
-          console.log(err)
-          reject(err);}
-        else resolve(response);
+  try {
+    const response = await new Promise((resolve, reject) => {
+      client.comments.analyze(
+        {
+          key: API_KEY,
+          resource: analyzeRequest,
+        },
+        (err, response) => {
+          if (err) {
+            // Only bypass if it's a language support error
+            if (err.message.includes('language') || err.message.includes('languages')) {
+              console.log("Language support error:", err.message);
+              resolve({ data: { attributeScores: {} } }); // Return empty scores for unsupported language
+            } else {
+              console.log("API Error:", err.message);
+              reject(err);
+            }
+          } else resolve(response);
+        }
+      );
+    });
+
+    // Extract scores for supported attributes
+    const scores = {};
+    Object.keys(analyzeRequest.requestedAttributes).forEach(attr => {
+      const score = response.data?.attributeScores?.[attr]?.summaryScore?.value;
+      if (score !== undefined) {
+        scores[attr.toLowerCase()] = score;
       }
-    );
-  }); // Extract all scores
-  const scores = {
-    toxicity: response.data.attributeScores.TOXICITY.summaryScore.value,
-    severe_toxicity:
-      response.data.attributeScores.SEVERE_TOXICITY.summaryScore.value,
-    insult: response.data.attributeScores.INSULT.summaryScore.value,
-    sexually_explicit:
-      response.data.attributeScores.SEXUALLY_EXPLICIT?.summaryScore.value,
-    profanity: response.data.attributeScores.PROFANITY.summaryScore.value,
-    threat: response.data.attributeScores.THREAT.summaryScore.value,
-    identity_attack:
-      response.data.attributeScores.IDENTITY_ATTACK.summaryScore.value,
-  };
+    });
 
-  console.log(scores)
+    console.log("Content analysis scores:", scores);
 
-  // Store content analysis in request for potential logging/monitoring
-  req.contentAnalysis = {
-    scores,
-    allScores: response.data.attributeScores,
-    highestScore: Math.max(...Object.values(scores)),
-  }; // Reject content that exceeds the threshold on any score
-  if (req.contentAnalysis.highestScore > TOXICITY_THRESHOLD) {
-    // Determine which type of inappropriate content was detected
-    const violationType = Object.entries(scores).reduce(
-      (highest, [key, value]) => {
-        return value > highest.value ? { type: key, value } : highest;
-      },
-      { type: "unknown", value: 0 }
-    );
+    req.contentAnalysis = {
+      scores,
+      allScores: response.data.attributeScores,
+      highestScore: Object.values(scores).length > 0 ? Math.max(...Object.values(scores)) : 0,
+    };
 
-    throw new ApiError(
-      400,
-      `Content contains inappropriate language (${violationType.type})`
-    );
+    // Always check threshold if we have any scores
+    if (Object.keys(scores).length > 0 && req.contentAnalysis.highestScore > TOXICITY_THRESHOLD) {
+      const violationType = Object.entries(scores).reduce(
+        (highest, [key, value]) => {
+          return value > highest.value ? { type: key, value } : highest;
+        },
+        { type: "unknown", value: 0 }
+      );
+
+      throw new ApiError(
+        400,
+        `Content contains inappropriate language (${violationType.type})`
+      );
+    }
+
+    next();
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error; // Re-throw our API errors (like toxicity threshold violations)
+    }
+    // For other errors (like API connection issues), log and continue
+    console.log("Content analysis failed:", error.message);
+    req.contentAnalysis = {
+      scores: {},
+      error: error.message,
+      analysisSkipped: true
+    };
+    next();
   }
-
-  // Continue to the next middleware
-  next();
 });
 
 export { analyzeContent };

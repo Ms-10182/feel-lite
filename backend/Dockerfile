@@ -5,9 +5,9 @@ WORKDIR /server
 COPY package.json ./
 COPY package-lock.json ./
 RUN npm install
-COPY ./src ./
-COPY ./public ./
+COPY ./src ./src
+COPY ./public ./public
 
-EXPOSE 8080
+EXPOSE 80
 
-ENTRYPOINT [ "npm","run","dev" ]
+CMD [ "node","src/index.js" ]

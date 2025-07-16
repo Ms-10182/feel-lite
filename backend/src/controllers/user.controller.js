@@ -28,62 +28,6 @@ const generateAccessAndRefreshToken = async (user) => {
   }
 };
 
-const registerUser = asyncHandler(async (req, res) => {
-  //take user details
-  //check if email exist of not
-  //generate username
-  //assign cover image
-  //assign avtar
-  //create user
-  console.log("registering user");
-
-  const { email, password, age } = req.body;
-
-  if ([email, password].some((item) => item?.trim() === "")) {
-    throw new ApiError(400, "all fields are required");
-  }
-
-  if (age < requiredAge || typeof age != "number") {
-    throw new ApiError(400, `age is too low, required age is ${requiredAge}`);
-  }
-
-  const existingUser = await User.findOne({
-    email: email,
-  });
-
-  if (existingUser) {
-    throw new ApiError(400, "user already exists");
-  }
-
-  const username = generateUsername();
-  const avatarUrl = getAvatarUrl();
-  const coverImageUrl = getCoverImageUrl();
-  const logoutPin = Math.floor(Math.random()*10000)
-
-  const user = await User.create({
-    username,
-    email,
-    avatar: avatarUrl,
-    coverImage: coverImageUrl,
-    password,
-    logoutPin:logoutPin
-  });
-  console.log(user);
-
-  const createdUser = await User.findOne({ email }).select(
-    "-password -refreshToken"
-  );
-
-  if (!createdUser) {
-    throw new ApiError(500, "user not registered");
-  }
-
-  res
-    .status(200)
-    .json(
-      new ApiResponse(200 ,{}, "user registered sucessfully")
-    );
-});
 
 const loginUser = asyncHandler(async (req, res) => {
   //get id pass, check if correct fetch user , generate access and referesh token and return user
@@ -315,7 +259,7 @@ const getUserById = asyncHandler(async (req, res) => {
 });
 
 export {
-  registerUser,
+  
   loginUser,
   logoutUser,
   getUser,

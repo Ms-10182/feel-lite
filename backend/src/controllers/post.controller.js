@@ -757,6 +757,12 @@ const getPostByHashTag = asyncHandler(async (req, res) => {
 
   const trimmedHashTag = hashTag.trim();
 
+  // Add sanitization
+  const sanitizedHashTag = hashTag.replace(/[^a-zA-Z0-9]/g, '');
+  if (sanitizedHashTag !== hashTag) {
+      throw new ApiError(400, "Invalid hashtag format");
+  }
+
   const postsAggregate = Post.aggregate([
     // First filter out archived posts (important to do early for performance)
     { 
@@ -1092,20 +1098,26 @@ const getGlobalFeed = asyncHandler(async (req, res) => {
     {
       $lookup: {
         from: "bookmarkedposts",
-        let: { postId: "$_id" },
+        localField: "_id",
+        foreignField: "post",
+        as: "bookmarkedPosts"
+      }
+    },
+    {
+      $lookup: {
+        from: "bookmarks",
+        let: { bookmarkedPosts: "$bookmarkedPosts" },
         pipeline: [
-          { $match: { $expr: { $and: [
-            { $eq: ["$post", "$$postId"] },
-            { $eq: ["$bookmark", { $ifNull: [null, null] }] } // placeholder, will be replaced
-          ] } } },
-          { $lookup: {
-            from: "bookmarks",
-            localField: "bookmark",
-            foreignField: "_id",
-            as: "bookmarkDetails"
-          } },
-          { $unwind: "$bookmarkDetails" },
-          { $match: { "bookmarkDetails.owner": req.user._id } },
+          { 
+            $match: { 
+              $expr: { 
+                $and: [
+                  { $in: ["$_id", "$$bookmarkedPosts.bookmark"] },
+                  { $eq: ["$owner", req.user._id] }
+                ]
+              } 
+            } 
+          }
         ],
         as: "userBookmarks"
       }

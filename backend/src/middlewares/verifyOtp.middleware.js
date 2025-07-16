@@ -19,7 +19,7 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
   // Fetch OTP from DB
   const dbOtp = await Otp.findOne({
     owner: new mongoose.Types.ObjectId(req.user._id),
-  }).sort({ createdAt: -1 });;
+  }).sort({ createdAt: -1 });
 
   if (!dbOtp) {
     throw new ApiError(400, "No OTP found for this user");
@@ -43,7 +43,10 @@ const verifyOtp = asyncHandler(async (req, res, next) => {
 
   req.isOtpVerified = true;
 
+  // Delete OTP after successful verification
   await dbOtp.deleteOne();
+  console.log("otp deleted");
+  
   next();
 });
 

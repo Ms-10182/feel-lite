@@ -28,7 +28,6 @@ const generateAccessAndRefreshToken = async (user) => {
   }
 };
 
-
 const loginUser = asyncHandler(async (req, res) => {
   //get id pass, check if correct fetch user , generate access and referesh token and return user
 
@@ -60,7 +59,10 @@ const loginUser = asyncHandler(async (req, res) => {
       await user.save({ validateBeforeSave: false });
     } else {
       // User is banned
-      throw new ApiError(403, `Your account has been suspended${user.banExpiresAt ? " until " + user.banExpiresAt.toLocaleDateString() : ""}: ${user.banReason || "Violation of terms"}`);
+      throw new ApiError(
+        403,
+        `Your account has been suspended${user.banExpiresAt ? " until " + user.banExpiresAt.toLocaleDateString() : ""}: ${user.banReason || "Violation of terms"}`
+      );
     }
   }
 
@@ -74,6 +76,7 @@ const loginUser = asyncHandler(async (req, res) => {
   const options = {
     httpOnly: true,
     secure: true,
+    sameSite: "none",
   };
 
   res
@@ -99,7 +102,10 @@ const loginUsingRefreshToken = asyncHandler(async (req, res) => {
       await user.save({ validateBeforeSave: false });
     } else {
       // User is banned
-      throw new ApiError(403, `Your account has been suspended${user.banExpiresAt ? " until " + user.banExpiresAt.toLocaleDateString() : ""}: ${user.banReason || "Violation of terms"}`);
+      throw new ApiError(
+        403,
+        `Your account has been suspended${user.banExpiresAt ? " until " + user.banExpiresAt.toLocaleDateString() : ""}: ${user.banReason || "Violation of terms"}`
+      );
     }
   }
 
@@ -113,6 +119,7 @@ const loginUsingRefreshToken = asyncHandler(async (req, res) => {
   const options = {
     httpOnly: true,
     secure: true,
+    sameSite: "none",
   };
 
   res
@@ -137,6 +144,7 @@ const logoutUser = asyncHandler(async (req, res) => {
   const options = {
     httpOnly: true,
     secure: true,
+    sameSite: "none",
   };
 
   res
@@ -146,7 +154,7 @@ const logoutUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "user logged out"));
 });
 
-const logoutFromEveryWhere = asyncHandler(async(req,res)=>{
+const logoutFromEveryWhere = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);
 
   if (!user) {
@@ -154,12 +162,13 @@ const logoutFromEveryWhere = asyncHandler(async(req,res)=>{
   }
 
   user.refreshToken = null;
-  user.logoutPin = Math.floor(Math.random()*10000)
+  user.logoutPin = Math.floor(Math.random() * 10000);
   await user.save({ validateBeforeSave: false });
 
   const options = {
     httpOnly: true,
     secure: true,
+    sameSite: "none",
   };
 
   res
@@ -167,7 +176,7 @@ const logoutFromEveryWhere = asyncHandler(async(req,res)=>{
     .clearCookie("accessToken", options)
     .clearCookie("refreshToken", options)
     .json(new ApiResponse(200, {}, "user logged out from every where"));
-})
+});
 
 const getUser = asyncHandler(async (req, res) => {
   res
@@ -245,9 +254,7 @@ const getUserById = asyncHandler(async (req, res) => {
     throw new ApiError(400, "user id is required");
   }
 
-  const user = await User.findById(userId).select(
-    "-password -refreshToken"
-  );  
+  const user = await User.findById(userId).select("-password -refreshToken");
 
   if (!user) {
     throw new ApiError(404, "user not found");
@@ -259,7 +266,6 @@ const getUserById = asyncHandler(async (req, res) => {
 });
 
 export {
-  
   loginUser,
   logoutUser,
   getUser,
@@ -268,5 +274,5 @@ export {
   changeUserName,
   loginUsingRefreshToken,
   logoutFromEveryWhere,
-  getUserById
+  getUserById,
 };

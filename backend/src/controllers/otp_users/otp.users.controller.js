@@ -11,11 +11,8 @@ import { BookmarkedPost } from "../../models/BookmarkedPost.model.js";
 import { Post } from "../../models/Post.model.js";
 import { Like } from "../../models/Like.model.js";
 import { Thread } from "../../models/Thread.models.js";
-import {  getAvatarUrl,
-} from "../../utils/avatarSelector.js";
-import {
-  getCoverImageUrl,
-} from "../../utils/coverImageSelector.js";
+import { getAvatarUrl } from "../../utils/avatarSelector.js";
+import { getCoverImageUrl } from "../../utils/coverImageSelector.js";
 
 import { generateUsername } from "../../utils/usernameGenerator.js";
 
@@ -56,7 +53,6 @@ const generateOtp = asyncHandler(async (req, res) => {
       userEmail = existingUser.email;
     }
   }
-
 
   const lastOtp = await Otp.findOne({
     owner: userId,
@@ -111,7 +107,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   const { email, otp, password, age } = req.body;
 
-  if(otp.length !== 6){
+  if (otp.length !== 6) {
     throw new ApiError(400, "otp must be 6 digits");
   }
 
@@ -132,9 +128,14 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
   // First find if there's an OTP for this email (through temporary reference)
-  const tempUser = await Otp.findOne({ tempEmail: email }).sort({ createdAt: -1 });
+  const tempUser = await Otp.findOne({ tempEmail: email }).sort({
+    createdAt: -1,
+  });
   if (!tempUser) {
-    throw new ApiError(400, "no otp found for this email, please generate OTP first");
+    throw new ApiError(
+      400,
+      "no otp found for this email, please generate OTP first"
+    );
   }
 
   const isOtpValid = await tempUser.isOtpCorrect(otp);
@@ -145,11 +146,10 @@ const registerUser = asyncHandler(async (req, res) => {
   // Delete OTP after successful verification
   await tempUser.deleteOne();
 
-
   const username = generateUsername();
   const avatarUrl = getAvatarUrl();
   const coverImageUrl = getCoverImageUrl();
-  const logoutPin = Math.floor(Math.random()*10000)
+  const logoutPin = Math.floor(Math.random() * 10000);
 
   const user = await User.create({
     username,
@@ -157,7 +157,7 @@ const registerUser = asyncHandler(async (req, res) => {
     avatar: avatarUrl,
     coverImage: coverImageUrl,
     password,
-    logoutPin:logoutPin
+    logoutPin: logoutPin,
   });
   console.log(user);
 
@@ -169,11 +169,7 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(500, "user not registered");
   }
 
-  res
-    .status(200)
-    .json(
-      new ApiResponse(200 ,{}, "user registered sucessfully")
-    );
+  res.status(200).json(new ApiResponse(200, {}, "user registered sucessfully"));
 });
 
 const changePassword = asyncHandler(async (req, res) => {
@@ -196,7 +192,8 @@ const changePassword = asyncHandler(async (req, res) => {
   if (!isPasswordValid) {
     throw new ApiError(401, "old password wrong");
   }
-
+  user.refreshToken = null;
+  user.logoutPin = Math.floor(Math.random() * 10000);
   user.password = newPassword;
   await user.save({ validateBeforeSave: false });
 
@@ -379,35 +376,50 @@ const deleteAccount = asyncHandler(async (req, res) => {
 });
 
 const forgotPassword = asyncHandler(async (req, res) => {
-  const {email, otp , newPassword} = req.body;
+  const { email, otp, newPassword } = req.body;
 
-  if([email,newPassword].some((item)=>item.trim()==="") || otp.length!==6){
-    throw new ApiError(400,"either email,newPassword is empty or otp is invalid")
+  if (
+    [email, newPassword].some((item) => item.trim() === "") ||
+    otp.length !== 6
+  ) {
+    throw new ApiError(
+      400,
+      "either email,newPassword is empty or otp is invalid"
+    );
   }
-  const user = await User.findOne({email:email});
-  console.log("1")
-  const dbOtp = await Otp.findOne({owner:user._id})
-  console.log("2")
-  
+  const user = await User.findOne({ email: email });
+  console.log("1");
+  const dbOtp = await Otp.findOne({ owner: user._id });
+  console.log("2");
+
   const isOtpValid = dbOtp.isOtpCorrect(otp);
-  console.log("3")
+  console.log("3");
 
-  if(!isOtpValid){
-    throw new ApiError(400,"otp is incorrect");
+  if (!isOtpValid) {
+    throw new ApiError(400, "otp is incorrect");
   }
-  if(!dbOtp){
-    throw new ApiError(400,"no otp found for this user");
+  if (!dbOtp) {
+    throw new ApiError(400, "no otp found for this user");
   }
-  if(!user){
-    throw new ApiError(404,"user not found with this email");
+  if (!user) {
+    throw new ApiError(404, "user not found with this email");
   }
   user.password = newPassword;
-  await user.save({validateBeforeSave:false});
+  await user.save({ validateBeforeSave: false });
 
   // Delete OTP after successful verification
   await dbOtp.deleteOne();
   console.log("otp deleted");
-  res.status(200).json(new ApiResponse(200, {}, "password changed successfully"));
+  res
+    .status(200)
+    .json(new ApiResponse(200, {}, "password changed successfully"));
 });
 
-export { generateOtp, changePassword, updateAccountDetails, deleteAccount, forgotPassword, registerUser };
+export {
+  generateOtp,
+  changePassword,
+  updateAccountDetails,
+  deleteAccount,
+  forgotPassword,
+  registerUser,
+};

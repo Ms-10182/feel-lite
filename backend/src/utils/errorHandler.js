@@ -1,3 +1,4 @@
+import e from "express";
 import { ApiError } from "../utils/ApiError.js";
 
 const errorHandler = (err, req, res, next) => {
@@ -42,6 +43,7 @@ const errorHandler = (err, req, res, next) => {
     message = "Token expired";
   }
 
+  console.log(err);
   res.status(statusCode).json({
     success: false,
     message: message,

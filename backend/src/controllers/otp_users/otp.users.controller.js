@@ -63,8 +63,8 @@ const generateOtp = asyncHandler(async (req, res) => {
     const lastOtpTime = new Date(lastOtp.createdAt).getTime();
     const differenceTime = currentTime - lastOtpTime;
 
-    if (differenceTime < 2 * 60 * 1000) {
-      throw new ApiError(400, "Wait 2 minutes before generating new OTP");
+    if (differenceTime < 1 * 60 * 1000) {
+      throw new ApiError(400, "Wait 1 minute before generating new OTP");
     }
   }
 

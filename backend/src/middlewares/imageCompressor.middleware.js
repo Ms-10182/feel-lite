@@ -2,6 +2,7 @@ import sharp from "sharp";
 import fs from "fs/promises";
 import { FileTypeCheck } from "../utils/imageExtensionValidator.js";
 import { ApiError } from "../utils/ApiError.js";
+import path from "path";
 
 const compressImagesMiddleware = async (req, _, next) => {
   try {
@@ -19,8 +20,10 @@ const compressImagesMiddleware = async (req, _, next) => {
     const compressedImages = [];
 
     for (const file of req.files) {
-      const name = file.path.split("\\").pop();
+      const name = path.basename(file.path); // ✅ gives filename only, works on all OS
+
       const outputPath = `./public/tempCompressed/${name}`;
+       console.log(file.path);
       sharp.cache(false); // Disable sharp cache
 
       // Compress the image

@@ -17,7 +17,7 @@ import { upload } from "../middlewares/multer.middleware.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { checkBanStatus } from "../middlewares/banChecker.middleware.js";
 import { compressImagesMiddleware } from "../middlewares/imageCompressor.middleware.js";
-import { analyzeContent } from "../middlewares/contentAnalyzer.middleware.js";
+import { analyzeContent,imageContentAnalyzer } from "../middlewares/contentAnalyzer.middleware.js";
 
 const router = Router();
 router.use(verifyJWT);
@@ -26,6 +26,7 @@ router.use(verifyJWT);
 router.route("/").post(
   checkBanStatus,
   upload.array("postImage", 5),
+  imageContentAnalyzer,
   compressImagesMiddleware,
   analyzeContent,
   createPost

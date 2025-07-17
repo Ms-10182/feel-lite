@@ -20,8 +20,10 @@ const compressImagesMiddleware = async (req, _, next) => {
     const compressedImages = [];
 
     for (const file of req.files) {
+      // const name = file.path.split("\\").pop();
+      // const outputPath = `./public/tempCompressed/${name}`;
       const name = path.basename(file.path); // ✅ gives filename only, works on all OS
-
+      console.log(`Compressing image: ${name}`);
       const outputPath = `./public/tempCompressed/${name}`;
        console.log(file.path);
       sharp.cache(false); // Disable sharp cache

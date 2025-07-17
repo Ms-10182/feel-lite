@@ -14,6 +14,7 @@ const createPost = asyncHandler(async (req, res) => {
   console.log("User:", req.user);
   
   console.log(req.body);
+  console.log(req.compressedImages);
   const { content, tags } = req.body;
 
   if (!req.user) {

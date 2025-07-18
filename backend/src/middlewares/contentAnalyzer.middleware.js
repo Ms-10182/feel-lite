@@ -12,9 +12,23 @@ import { FileTypeCheck } from "../utils/imageExtensionValidator.js";
  * Middleware to analyze content for toxicity using Google's Perspective API
  * If content exceeds toxicity threshold, it will throw an error
  */
+const fileRemover = async (files) => {
+  if (files.length === 0) return;
+
+  for (const file of files) {
+    const filePath = file?.path;
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (error) {
+      console.error(`Error removing file: ${error.message}`);
+    }
+  }
+};
 
 const imageContentAnalyzer = asyncHandler(async (req, _, next) => {
-  const threshold = 5; // Set your desired threshold here
+  const threshold = 2; // Set your desired threshold here
   const endpoint = process.env.AZURE_AI_FILTER_ENDPOINT;
   const key = process.env.AZURE_AI_FILTER_KEY;
 
@@ -75,17 +89,35 @@ const imageContentAnalyzer = asyncHandler(async (req, _, next) => {
           console.log(
             `  Category: ${imageCategoriesAnalysisOutput.category}, Severity: ${imageCategoriesAnalysisOutput.severity}`
           );
+
+          if (imageCategoriesAnalysisOutput.severity > threshold) {
+            console.warn(
+              `  Warning: ${imageCategoriesAnalysisOutput.category} exceeds threshold`
+            );
+            await fileRemover(req.files);
+            throw new ApiError(
+              400,
+              `Image contains inappropriate content: ${imageCategoriesAnalysisOutput.category}`,
+            );
+          }
         }
       } else {
         console.log("No categories analysis found in the response.");
       }
     } catch (err) {
       console.error("The image analysis encountered an error:", err);
+      if(err.statusCode===400){
+        throw new ApiError(400, `${err.message}`);
+      }
       if (err.response && err.response.data) {
         console.error("Error details:", err.response.data);
       } else if (err.body) {
         console.error("Error details (from SDK result.body):", err.body);
       }
+      throw new ApiError(
+        500,
+        "An error occurred while analyzing the image content."
+      );
     }
   }
   next();
